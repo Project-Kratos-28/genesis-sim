@@ -1,0 +1,526 @@
+<?xml version="1.0"?>
+<!-- Athena Rover URDF v3 with STL mesh references. Generated from Athena.step. -->
+<!-- All meshes exported in mm; scale="0.001 0.001 0.001" converts to metres.   -->
+<!-- Package path: package://athena_description/meshes/                          -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="athena_rover">
+
+  <xacro:include filename="$(find zed_wrapper)/urdf/zed_macro.urdf.xacro"/>
+
+  <xacro:zed_camera name="zed2i" model="zed2i" enable_gnss="false">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </xacro:zed_camera>
+
+  <material name="aluminium">
+    <color rgba="0.75 0.75 0.80 1.0"/>
+  </material>
+  <material name="rubber">
+    <color rgba="0.15 0.15 0.15 1.0"/>
+  </material>
+  <material name="motor_grey">
+    <color rgba="0.4 0.4 0.4 1.0"/>
+  </material>
+  <material name="tpu_orange">
+    <color rgba="0.9 0.45 0.1 1.0"/>
+  </material>
+
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_to_base" type="fixed">
+    <parent link="base_footprint"/>
+    <child  link="base_link"/>
+    <origin xyz="0.0 0.0 0.155" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="-0.2600 0.7500 -0.0850" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/chassis.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="aluminium"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.2600 0.7500 -0.0850" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/chassis.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="8.0"/>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <inertia ixx="0.400" ixy="0.0" ixz="0.0"
+               iyy="0.180" iyz="0.0"
+               izz="0.500"/>
+    </inertial>
+  </link>
+
+  <joint name="zed2i_mount_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="zed2i_camera_link"/>
+    <origin xyz="0.2 0 0.3" rpy="0 0 0"/>
+  </joint>
+
+  <link name="bogey_left">
+    <visual>
+      <origin xyz="-0.2600 -1.0250 0.0645" rpy="0 3.1416 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/bogey_arm.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="aluminium"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.2600 -1.0250 0.0645" rpy="0 3.1416 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/bogey_arm.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.2"/>
+      <origin xyz="0.0 0.275 0.0" rpy="0 0 0"/>
+      <inertia ixx="0.030" ixy="0.0" ixz="0.0"
+               iyy="0.002" iyz="0.0"
+               izz="0.030"/>
+    </inertial>
+  </link>
+
+  <joint name="bogey_left_pivot" type="revolute">
+    <parent link="base_link"/>
+    <child  link="bogey_left"/>
+    <origin xyz="0.0 0.275 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.5236" upper="0.5236" effort="0" velocity="1.0"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <link name="bogey_right">
+    <visual>
+      <origin xyz="-0.2600 1.0250 -0.0645" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/bogey_arm.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="aluminium"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.2600 1.0250 -0.0645" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/bogey_arm.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.2"/>
+      <origin xyz="0.0 -0.275 0.0" rpy="0 0 0"/>
+      <inertia ixx="0.030" ixy="0.0" ixz="0.0"
+               iyy="0.002" iyz="0.0"
+               izz="0.030"/>
+    </inertial>
+  </link>
+
+  <joint name="bogey_right_pivot" type="revolute">
+    <parent link="base_link"/>
+    <child  link="bogey_right"/>
+    <origin xyz="0.0 -0.275 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.5236" upper="0.5236" effort="0" velocity="1.0"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <!-- ================================================================ -->
+  <!-- FRONT-LEFT: steering split into housing (fixed) + coupler (steers) -->
+  <!-- ================================================================ -->
+
+  <link name="steer_housing_front_left">
+    <visual>
+      <origin xyz="0.6145 -1.1306 -0.1077" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="0.6145 -1.1306 -0.1077" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_housing_mount_front_left" type="fixed">
+    <parent link="bogey_left"/>
+    <child  link="steer_housing_front_left"/>
+    <origin xyz="-0.39291 0.11681 0.0425000" rpy="0 0 0"/>
+  </joint>
+
+  <link name="steer_coupler_front_left">
+    <visual>
+      <origin xyz="-0.6145 1.1307 0.0063" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.6145 1.1307 0.0063" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.15"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_front_left" type="revolute">
+    <parent link="steer_housing_front_left"/>
+    <child  link="steer_coupler_front_left"/>
+    <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.79" upper="0.79" effort="10" velocity="1.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <link name="wheel_front_left">
+    <visual>
+      <origin xyz="0.4497 0.3642 0.1895" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/wheel.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="rubber"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.115" length="0.080"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.8"/>
+      <inertia ixx="0.006" ixy="0" ixz="0"
+               iyy="0.010" iyz="0"
+               izz="0.006"/>
+    </inertial>
+  </link>
+
+  <joint name="wheel_front_left_spin" type="continuous">
+    <parent link="steer_coupler_front_left"/>
+    <child  link="wheel_front_left"/>
+    <origin xyz="0.0 0.0 -0.186" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.01" friction="0.05"/>
+      <limit upper="3.14"/>
+  </joint>
+
+  <!-- ================================================================ -->
+  <!-- REAR-LEFT -->
+  <!-- ================================================================ -->
+
+  <link name="steer_housing_rear_left">
+    <visual>
+      <origin xyz="-1.1029 0.6629 -0.1077" rpy="0 0 0.5317"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="-1.1029 0.6629 -0.1077" rpy="0 0 0.5317"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_housing_mount_rear_left" type="fixed">
+    <parent link="bogey_left"/>
+    <child  link="steer_housing_rear_left"/>
+    <origin xyz="0.34458 0.10398 0.0425000" rpy="0 0 0"/>
+  </joint>
+
+  <link name="steer_coupler_rear_left">
+    <visual>
+      <origin xyz="-0.6145 1.1307 0.0063" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.6145 1.1307 0.0063" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.15"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_rear_left" type="revolute">
+    <parent link="steer_housing_rear_left"/>
+    <child  link="steer_coupler_rear_left"/>
+    <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <link name="wheel_rear_left">
+    <visual>
+      <origin xyz="0.4497 0.3642 0.1895" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/wheel.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="rubber"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.115" length="0.080"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.8"/>
+      <inertia ixx="0.006" ixy="0" ixz="0"
+               iyy="0.010" iyz="0"
+               izz="0.006"/>
+    </inertial>
+  </link>
+
+  <joint name="wheel_rear_left_spin" type="continuous">
+    <parent link="steer_coupler_rear_left"/>
+    <child  link="wheel_rear_left"/>
+    <origin xyz="0.0 0.0 -0.186" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.01" friction="0.05"/>
+  </joint>
+
+  <!-- ================================================================ -->
+  <!-- FRONT-RIGHT (mirrored) -->
+  <!-- ================================================================ -->
+
+  <link name="steer_housing_front_right">
+    <visual>
+      <origin xyz="1.1002 -0.6674 -0.1077" rpy="0 0 3.6692"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="1.1002 -0.6674 -0.1077" rpy="0 0 3.6692"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_housing_mount_front_right" type="fixed">
+    <parent link="bogey_right"/>
+    <child  link="steer_housing_front_right"/>
+    <origin xyz="-0.39291 -0.11681 0.0425000" rpy="0 0 0"/>
+  </joint>
+
+  <link name="steer_coupler_front_right">
+    <visual>
+      <origin xyz="0.6145 -1.1307 0.0063" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="0.6145 -1.1307 0.0063" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.15"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_front_right" type="revolute">
+    <parent link="steer_housing_front_right"/>
+    <child  link="steer_coupler_front_right"/>
+    <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <link name="wheel_front_right">
+    <visual>
+      <origin xyz="-0.4497 -0.3642 0.1895" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/wheel.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="rubber"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.115" length="0.080"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.8"/>
+      <inertia ixx="0.006" ixy="0" ixz="0"
+               iyy="0.010" iyz="0"
+               izz="0.006"/>
+    </inertial>
+  </link>
+
+  <joint name="wheel_front_right_spin" type="continuous">
+    <parent link="steer_coupler_front_right"/>
+    <child  link="wheel_front_right"/>
+    <origin xyz="0.0 0.0 -0.186" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.01" friction="0.05"/>
+  </joint>
+
+  <!-- ================================================================ -->
+  <!-- REAR-RIGHT (mirrored) -->
+  <!-- ================================================================ -->
+
+  <link name="steer_housing_rear_right">
+    <visual>
+      <origin xyz="-0.6145 1.1306 -0.1077" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="-0.6145 1.1306 -0.1077" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/SteeringMotorHousing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.2"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_housing_mount_rear_right" type="fixed">
+    <parent link="bogey_right"/>
+    <child  link="steer_housing_rear_right"/>
+    <origin xyz="0.34458 -0.10398 0.0425000" rpy="0 0 0"/>
+  </joint>
+
+  <link name="steer_coupler_rear_right">
+    <visual>
+      <origin xyz="0.6145 -1.1307 0.0063" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="motor_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="0.6145 -1.1307 0.0063" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/stearing.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.15"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0"
+               iyy="0.0001" iyz="0"
+               izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <joint name="steer_rear_right" type="revolute">
+    <parent link="steer_housing_rear_right"/>
+    <child  link="steer_coupler_rear_right"/>
+    <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <link name="wheel_rear_right">
+    <visual>
+      <origin xyz="-0.4497 -0.3642 0.1895" rpy="0 0 3.1416"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/wheel.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="rubber"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.115" length="0.080"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.8"/>
+      <inertia ixx="0.006" ixy="0" ixz="0"
+               iyy="0.010" iyz="0"
+               izz="0.006"/>
+    </inertial>
+  </link>
+
+  <joint name="wheel_rear_right_spin" type="continuous">
+    <parent link="steer_coupler_rear_right"/>
+    <child  link="wheel_rear_right"/>
+    <origin xyz="0.0 0.0 -0.186" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.01" friction="0.05"/>
+  </joint>
+
+</robot>

@@ -1,0 +1,9 @@
+build/
+install/
+log/
+
+.git/
+frame*
+ZED*
+
+src/zed-ros2-wrapper
