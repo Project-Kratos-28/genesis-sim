@@ -1,25 +1,10 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
-from launch.actions import IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 
 import os
 
 def generate_launch_description():
-    zed_wrapper_dir = get_package_share_directory('zed_wrapper')
-    zed_camera_launch_file = os.path.join(zed_wrapper_dir, 'launch', 'zed_camera.launch.py')
 
-    zed_camera_cmd = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(zed_camera_launch_file),
-        launch_arguments={
-            'camera_model': 'zed2i',
-            'publish_tf': 'true', 
-            'publish_map_tf': 'true',      
-            'base_frame': 'base_footprint',  
-            'cam_pose_frame': 'zed_camera_link',
-        }.items()
-    )
 
     urdf_file = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
 
@@ -49,5 +34,26 @@ def generate_launch_description():
             name='genesis_zed_bridge',
             output='screen'
         ),
-        zed_camera_cmd        
+        Node (
+            package="rtabmap_odom",
+            executable='stereo_odometry',
+            name='stereo_odometry',
+            output='screen',
+            parameters=[{
+                'frame_id': 'base_footprint',
+                'odom_frame_id': 'odom',
+                'publish_tf': True,
+                'approx_sync': False,   
+                'wait_imu_to_init': True,
+                'use_sim_time': True,
+            }],
+            remappings=[
+                ('left/image_rect', '/zed2i/left/image_rect_color'),
+                ('left/camera_info', '/zed2i/left/camera_info'),
+                ('right/image_rect', '/zed2i/right/image_rect_color'),
+                ('right/camera_info', '/zed2i/right/camera_info'),
+                ('imu', '/zed2i/imu/data'),
+            ]
+        )
+    
     ])

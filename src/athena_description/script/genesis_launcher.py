@@ -3,69 +3,185 @@ import rclpy
 from rclpy.node import Node
 import genesis as gs
 import os
-from sensor_msgs.msg import Image
+import random
+from sensor_msgs.msg import Image, Imu, CameraInfo
+from rosgraph_msgs.msg import Clock as ClockMsg
+from builtin_interfaces.msg import Time
 import numpy as np
+import torch
+from cv_bridge import CvBridge
+
+URDF_PATH = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
+
+WIDTH, HEIGHT, FOV_DEG = 1280, 720, 110.0
+BASELINE = 0.12
+
+SIM_DT=0.01
+
+
+WHEEL_BOTTOM_TO_FOOTPRINT = -0.2145
+SPAWN_CLEARANCE = 0.03
+SPAWN_Z = -WHEEL_BOTTOM_TO_FOOTPRINT + SPAWN_CLEARANCE
+
 
 class GenesisZedBridge(Node):
-    def __init__(self):
+    def __init__(self, width, height, fov_deg):
         super().__init__("genesis_zed_bridge")
-        self.rgb_pub = self.create_publisher(Image, '/zed2i/zed_node/rgb/image_rect_color', 10)
-        self.depth_pub = self.create_publisher(Image, '/zed2i/zed_node/depth/depth_registered', 10)
+        self.left_cam_pub_ = self.create_publisher(Image, "/zed2i/left/image_rect_color", 10)
+        self.right_cam_pub_ = self.create_publisher(Image, "/zed2i/right/image_rect_color", 10)
+        self.left_cam_info_pub_ = self.create_publisher(CameraInfo, "/zed2i/left/camera_info", 10)
+        self.right_cam_info_pub_ = self.create_publisher(CameraInfo, "/zed2i/right/camera_info", 10)
+        self.imu_pub_ = self.create_publisher(Imu, "/zed2i/imu/data", 10)
+        self.clock_pub_ = self.create_publisher(ClockMsg, "/clock", 10)
 
+        self.bridge = CvBridge()
+        self.width = width
+        self.height = height
+        fov = np.deg2rad(fov_deg)
+        fx = fy = (width/2.0) / np.tan(fov/2.0)
 
-        # gs setup
-        gs.init(backend=gs.gpu)
-        self.scene = gs.Scene(
-            show_viewer=True
-        )
-        self.scene.add_entity(gs.morphs.Plane())
-        self.robot = self.scene.add_entity(
-            gs.morphs.URDF(
-                file=os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf"), 
-                fixed=False,
-                links_to_keep=['zed2i_left_camera_frame_optical', 'zed2i_right_camera_frame_optical'],
-            )
-        )
-        self.cam = self.scene.add_camera(res=(1280, 720), fov=90, GUI=False)
-        self.scene.build()
+        cx, cy = width/2.0, height/2.0
 
+        self.K = [fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0]
+        self.P_left  = [fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
+        self.P_right = [fx, 0.0, cx, -fx*BASELINE, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
 
-        zed_link = self.robot.get_link('zed2i_left_camera_frame_optical')
-        self.cam.attach(zed_link, offset_T=np.eye(4))
+        self.sim_time = 0.0
 
-        self.timer = self.create_timer(1.0 / 30.0, self.step_and_publish)
+    def stamp(self):
+        sec = int(self.sim_time)
+        nsec = int((self.sim_time - sec) * 1e9)
+        return Time(sec=sec, nanosec=nsec)
 
-    def numpy_to_imgmsg(self, arr, encoding, frame_id, stamp):
-        msg = Image()
-        msg.header.stamp = stamp
+    def publish_clock(self):
+        msg = ClockMsg()
+        msg.clock = self.stamp()
+        self.clock_pub_.publish(msg)
+
+    def publish_camera_info(self, pub, frame_id, P):
+        info = CameraInfo()
+        info.header.stamp = self.stamp()
+        info.header.frame_id = frame_id
+        info.width, info.height = self.width, self.height
+        info.k = self.K
+        info.p = P
+        pub.publish(info)
+
+    def publish_image(self, pub, rgb, frame_id):
+        msg = self.bridge.cv2_to_imgmsg(np.ascontiguousarray(rgb), encoding="passthrough")
+        msg.encoding = "rgb8"
+        msg.header.stamp = self.stamp()
         msg.header.frame_id = frame_id
-        msg.height = arr.shape[0]
-        msg.width = arr.shape[1]
-        msg.encoding = encoding
-        msg.is_bigendian = 0
-        msg.step = arr.shape[1] * arr.itemsize * (arr.shape[2] if arr.ndim == 3 else 1)
-        msg.data = arr.tobytes()
-        return msg
-
-    def step_and_publish(self):
-        self.scene.step()
-        rgb, depth, _, _ = self.cam.render(rgb=True, depth=True)
-
-        stamp = self.get_clock().now().to_msg()
-
-        rgb_msg = self.numpy_to_imgmsg(rgb.astype(np.uint8), 'rgb8', 'zed2i_left_camera_optical_frame', stamp)
-        self.rgb_pub.publish(rgb_msg)
-
-        depth_msg = self.numpy_to_imgmsg(depth.astype(np.float32), '32FC1', 'zed2i_left_camera_optical_frame', stamp)
-        self.depth_pub.publish(depth_msg)
+        pub.publish(msg)
+ 
+    def publish_imu(self, imu_data, frame_id):
+        msg = Imu()
+        msg.header.stamp = self.stamp()
+        msg.header.frame_id = frame_id
+        lin_acc = getattr(imu_data, "lin_acc", None)
+        if lin_acc is None:
+            lin_acc = imu_data.linear_acceleration
+        ang_vel = getattr(imu_data, "ang_vel", None)
+        if ang_vel is None:
+            ang_vel = imu_data.angular_velocity
+        msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z = [float(v) for v in lin_acc]
+        msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z = [float(v) for v in ang_vel]
+        msg.orientation_covariance[0] = -1.0 
+        self.imu_pub_.publish(msg)
 
 
+    
 
 def main() :
     rclpy.init()
-    node = GenesisZedBridge()
-    rclpy.spin(node)
-    rclpy.shutdown()
+    gs.init(backend=gs.gpu)
+    scene = gs.Scene(
+    sim_options=gs.options.SimOptions(dt=0.01),
+        show_viewer=True
+    )
+    scene.add_entity(
+        gs.morphs.Plane(),
+        surface=gs.surfaces.Rough(
+            diffuse_texture=gs.textures.ImageTexture(image_path=os.path.expanduser("~/Desktop/kratos/src/athena_description/ground_noise.png"))
+        )
+    )
+
+    for i in range(15):
+        x = random.uniform(1.0, 6.0)
+        y = random.uniform(-3.0, 3.0)
+        scene.add_entity(
+            gs.morphs.Box(pos=(x, y, 0.15), size=(0.3, 0.3, 0.3), fixed=True),
+            surface=gs.surfaces.Rough(color=(random.random(), random.random(), random.random(), 1.0)),
+        )
+    rover = scene.add_entity(
+        gs.morphs.URDF(
+            file=URDF_PATH, 
+            fixed=False,
+            pos=(0.0, 0.0, SPAWN_Z),
+            merge_fixed_links=True,
+            links_to_keep=[
+                "base_footprint",
+                "zed2i_camera_center",
+                "zed2i_left_camera_frame_optical",
+                "zed2i_right_camera_frame_optical"
+            ]
+        )
+    )
+    left_cam = scene.add_camera(res=(1280, 720), fov=110)
+            
+    right_cam = scene.add_camera(res=(1280, 720), fov=110)
+    
+
+    left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
+    right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
+
+    imu_link = rover.get_link("zed2i_camera_center")
+
+    imu = scene.add_sensor(
+        gs.sensors.IMU(
+            entity_idx=rover.idx,
+            link_idx_local=imu_link.idx_local,
+        )
+    )
+
+    scene.build()
+
+    steer_joints = ["steer_front_left", "steer_front_right", "steer_rear_left", "steer_rear_right"]
+    steer_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in steer_joints]
+
+    rover.set_dofs_kp(kp=[800.0] * 4, dofs_idx_local=steer_dofs)
+    rover.set_dofs_kv(kv=[40.0] * 4, dofs_idx_local=steer_dofs)
+    rover.control_dofs_position(position=[0.0] * 4, dofs_idx_local=steer_dofs)
+    node = GenesisZedBridge(WIDTH, HEIGHT, FOV_DEG)
+
+    try :
+        while rclpy.ok():
+            rover.control_dofs_position(position=[0.0] * 4, dofs_idx_local=steer_dofs)
+            scene.step()
+            left_cam.move_to_attach()
+            right_cam.move_to_attach()
+
+            node.sim_time+=SIM_DT
+
+            node.publish_clock()
+
+            rgb_l, _, _, _ = left_cam.render(rgb=True)
+            rgb_r, _, _, _ = right_cam.render(rgb=True)
+
+            node.publish_image(node.left_cam_pub_, rgb_l, "zed2i_left_camera_frame_optical")
+            node.publish_image(node.right_cam_pub_, rgb_r, "zed2i_right_camera_frame_optical")
+            node.publish_camera_info(node.left_cam_info_pub_, "zed2i_left_camera_frame_optical", node.P_left)
+            node.publish_camera_info(node.right_cam_info_pub_, "zed2i_right_camera_frame_optical", node.P_right)
+
+            imu_data = imu.read() if hasattr(imu, "read") else imu.get_data()
+            node.publish_imu(imu_data, "zed2i_camera_center")
+
+            rclpy.spin_once(node, timeout_sec=0)
+
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == "__main__":
     main()

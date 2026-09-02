@@ -26,6 +26,11 @@
         <mesh filename="/opt/ros/jazzy/share/zed_description/meshes/zed2i.stl"/>
       </geometry>
     </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.01 0 0.0"/>
+      <mass value="0"/>
+      <inertia ixx="0.00044" ixy="0.0" ixz="0.0" iyy="0.0000275" iyz="0.0" izz="0.00044"/>
+    </inertial>
   </link>
   <joint name="zed2i_camera_center_joint" type="fixed">
     <parent link="zed2i_camera_link"/>
@@ -56,7 +61,7 @@
   </joint>
   <link name="zed2i_right_camera_frame_optical"/>
   <joint name="zed2i_right_camera_joint_optical" type="fixed">
-    <origin rpy="0 0.0 0" xyz="0 0 0"/>
+    <origin rpy="-1.5707963267948966 0.0 -1.5707963267948966" xyz="0 0 0"/>
     <parent link="zed2i_right_camera_frame"/>
     <child link="zed2i_right_camera_frame_optical"/>
   </joint>
