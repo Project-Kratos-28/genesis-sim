@@ -14,6 +14,7 @@ install(
 )
 install( PROGRAMS
   script/genesis_launcher.py
+  script/Ackermann.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

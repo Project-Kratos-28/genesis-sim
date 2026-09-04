@@ -3,12 +3,13 @@ import rclpy
 from rclpy.node import Node
 import genesis as gs
 import os
+import math
 import random
+from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image, Imu, CameraInfo
 from rosgraph_msgs.msg import Clock as ClockMsg
 from builtin_interfaces.msg import Time
 import numpy as np
-import torch
 from cv_bridge import CvBridge
 
 URDF_PATH = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
@@ -23,6 +24,37 @@ WHEEL_BOTTOM_TO_FOOTPRINT = -0.2145
 SPAWN_CLEARANCE = 0.03
 SPAWN_Z = -WHEEL_BOTTOM_TO_FOOTPRINT + SPAWN_CLEARANCE
 
+WHEEL_RADIUS = 0.115
+
+WHEEL_XY = {
+    "front_left":  (-0.39291,  0.39181),
+    "front_right": (-0.39291, -0.39181),
+    "rear_left":   ( 0.34458,  0.37898),
+    "rear_right":  ( 0.34458, -0.37898),
+}
+
+WHEEL_ORDER = ["front_left", "front_right", "rear_left", "rear_right"]
+ 
+STEER_JOINTS = ["steer_front_left", "steer_front_right", "steer_rear_left", "steer_rear_right"]
+WHEEL_JOINTS = ["wheel_front_left_spin", "wheel_front_right_spin", "wheel_rear_left_spin", "wheel_rear_right_spin"]
+ 
+MAX_STEER_ANGLE = 1.57
+
+def compute_wheel_states(v, wz):
+    steer_angles, wheel_ang_vels = [], []
+    for name in WHEEL_ORDER:
+        x, y = WHEEL_XY[name]
+        vx = v - wz * y
+        vy = wz * x
+        angle = math.atan2(vy, vx)
+        speed = math.hypot(vx, vy)
+        if abs(angle) > math.pi / 2:
+            angle = math.atan2(-vy, -vx)
+            speed = -speed
+        angle = max(-MAX_STEER_ANGLE, min(MAX_STEER_ANGLE, angle))
+        steer_angles.append(angle)
+        wheel_ang_vels.append(speed / WHEEL_RADIUS)
+    return steer_angles, wheel_ang_vels
 
 class GenesisZedBridge(Node):
     def __init__(self, width, height, fov_deg):
@@ -33,6 +65,11 @@ class GenesisZedBridge(Node):
         self.right_cam_info_pub_ = self.create_publisher(CameraInfo, "/zed2i/right/camera_info", 10)
         self.imu_pub_ = self.create_publisher(Imu, "/zed2i/imu/data", 10)
         self.clock_pub_ = self.create_publisher(ClockMsg, "/clock", 10)
+
+        self.cmd_vel_sub_ = self.create_subscription(Twist, "/cmd_vel", self.on_cmd_vel, 10)
+        self.v = 0.0
+        self.wz = 0.0
+
 
         self.bridge = CvBridge()
         self.width = width
@@ -48,10 +85,17 @@ class GenesisZedBridge(Node):
 
         self.sim_time = 0.0
 
+
+
     def stamp(self):
         sec = int(self.sim_time)
         nsec = int((self.sim_time - sec) * 1e9)
         return Time(sec=sec, nanosec=nsec)
+
+    def on_cmd_vel(self, msg):
+        self.v = msg.linear.x
+        self.wz = msg.angular.z
+
 
     def publish_clock(self):
         msg = ClockMsg()
@@ -108,7 +152,7 @@ def main() :
 
     for i in range(15):
         x = random.uniform(1.0, 6.0)
-        y = random.uniform(-3.0, 3.0)
+        y = random.uniform(3.0, 10.0)
         scene.add_entity(
             gs.morphs.Box(pos=(x, y, 0.15), size=(0.3, 0.3, 0.3), fixed=True),
             surface=gs.surfaces.Rough(color=(random.random(), random.random(), random.random(), 1.0)),
@@ -146,17 +190,24 @@ def main() :
 
     scene.build()
 
-    steer_joints = ["steer_front_left", "steer_front_right", "steer_rear_left", "steer_rear_right"]
-    steer_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in steer_joints]
+    steer_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in STEER_JOINTS]
+    wheel_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in WHEEL_JOINTS]
 
     rover.set_dofs_kp(kp=[800.0] * 4, dofs_idx_local=steer_dofs)
     rover.set_dofs_kv(kv=[40.0] * 4, dofs_idx_local=steer_dofs)
     rover.control_dofs_position(position=[0.0] * 4, dofs_idx_local=steer_dofs)
+
+    rover.set_dofs_kp(kp=[0.0] * 4, dofs_idx_local=wheel_dofs)
+    rover.set_dofs_kv(kv=[30.0] * 4, dofs_idx_local=wheel_dofs)
+
     node = GenesisZedBridge(WIDTH, HEIGHT, FOV_DEG)
 
     try :
         while rclpy.ok():
-            rover.control_dofs_position(position=[0.0] * 4, dofs_idx_local=steer_dofs)
+            steer_angles, wheel_ang_vels = compute_wheel_states(node.v, node.wz)
+            rover.control_dofs_position(position=steer_angles, dofs_idx_local=steer_dofs)
+            rover.control_dofs_velocity(velocity=wheel_ang_vels, dofs_idx_local=wheel_dofs)
+
             scene.step()
             left_cam.move_to_attach()
             right_cam.move_to_attach()

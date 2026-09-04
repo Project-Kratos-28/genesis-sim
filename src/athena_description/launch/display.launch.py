@@ -34,6 +34,7 @@ def generate_launch_description():
             name='genesis_zed_bridge',
             output='screen'
         ),
+        
         Node (
             package="rtabmap_odom",
             executable='stereo_odometry',
@@ -44,7 +45,7 @@ def generate_launch_description():
                 'odom_frame_id': 'odom',
                 'publish_tf': True,
                 'approx_sync': False,   
-                'wait_imu_to_init': True,
+                'wait_imu_to_init': False, # temporary False
                 'use_sim_time': True,
             }],
             remappings=[
@@ -52,8 +53,19 @@ def generate_launch_description():
                 ('left/camera_info', '/zed2i/left/camera_info'),
                 ('right/image_rect', '/zed2i/right/image_rect_color'),
                 ('right/camera_info', '/zed2i/right/camera_info'),
-                ('imu', '/zed2i/imu/data'),
+                # ('imu', '/zed2i/imu/data'), temporary
             ]
-        )
-    
+        ),
+        Node(
+            package='athena_description',
+            executable='Ackermann.py',
+            name='ackermann_to_twist',
+            output='screen',
+            parameters=[{
+                'ackermann_topic': '/ackermann_cmd',
+                'cmd_vel_topic': '/cmd_vel',
+                'stamped': True,
+                'use_sim_time': True,
+            }],
+        ),
     ])

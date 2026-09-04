@@ -215,7 +215,7 @@
     <child link="steer_coupler_front_left"/>
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.111"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" lower="-0.79" upper="0.79" velocity="1.0"/>
+    <limit effort="10" lower="-1.57" upper="1.57" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
   <link name="wheel_front_left">
@@ -296,7 +296,7 @@
     <child link="steer_coupler_rear_left"/>
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.111"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" lower="-0.7854" upper="0.7854" velocity="1.0"/>
+    <limit effort="10" lower="-1.57" upper="1.57" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
   <link name="wheel_rear_left">
@@ -376,7 +376,7 @@
     <child link="steer_coupler_front_right"/>
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.111"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" lower="-0.7854" upper="0.7854" velocity="1.0"/>
+    <limit effort="10" lower="-1.57" upper="1.57" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
   <link name="wheel_front_right">
@@ -456,7 +456,7 @@
     <child link="steer_coupler_rear_right"/>
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.111"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" lower="-0.7854" upper="0.7854" velocity="1.0"/>
+    <limit effort="10" lower="-1.57" upper="1.57" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
   <link name="wheel_rear_right">

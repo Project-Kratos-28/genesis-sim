@@ -5,6 +5,7 @@ log/
 .git/
 frame*
 ZED*
+kratos
 
 src/zed-ros2-wrapper
 src/athena_description/ground_generator.py
