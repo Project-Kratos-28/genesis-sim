@@ -1,5 +1,6 @@
 # requirements.txt
 torch
+coverage>=7.0
 numpy<2.0
 scipy>=1.11,<1.13
 genesis-world
