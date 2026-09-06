@@ -46,17 +46,6 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-## 5. Environment variables (VM / software rendering)
-
-If running on a VM without GPU passthrough, add the
-following to `.venv/bin/activate` so they're set automatically on activation:
-
-```bash
-echo 'export PYOPENGL_PLATFORM=osmesa' >> .venv/bin/activate
-echo 'export LIBGL_ALWAYS_SOFTWARE=1' >> .venv/bin/activate
-echo 'export MESA_GL_VERSION_OVERRIDE=3.3' >> .venv/bin/activate
-```
-
 ## Everyday usage
 
 Each new terminal session:
