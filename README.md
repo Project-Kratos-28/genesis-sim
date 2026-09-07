@@ -3,21 +3,56 @@
 ## Prerequisites
 
 - Ubuntu with ROS 2 Jazzy installed (`/opt/ros/jazzy`)
+- `python3-rosdep`
 - `python3-venv`:
-```bash
-  sudo apt install python3-venv
-```
+  ```bash
+  sudo apt install python3-rosdep python3-venv
+  ```
 
 ## Installation and setup
 
 ### 1. Install ROS dependencies
 
-Install the ROS message and mapping packages required by the workspace:
+After cloning the repository, run the following command from its root to
+resolve and install the ROS dependencies declared in `package.xml`:
 
 ```bash
 sudo apt update
-sudo apt install ros-jazzy-ackermann-msgs ros-jazzy-rtabmap-ros
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
 ```
+
+If `rosdep` has not been initialized on the machine, run the following once
+before `rosdep update`:
+
+```bash
+sudo rosdep init
+```
+
+The ROS packages installed by this project are:
+
+- `ament_index_python`
+- `ackermann_msgs`
+- `builtin_interfaces`
+- `cv_bridge`
+- `geometry_msgs`
+- `joint_state_publisher_gui`
+- `launch`
+- `launch_ros`
+- `rclpy`
+- `robot_state_publisher`
+- `rosgraph_msgs`
+- `rtabmap_odom`
+- `rviz2`
+- `sensor_msgs`
+- `zed_interfaces`
+- `zed_wrapper`
+- `xacro`
+
+`rosdep` maps these ROS package names to the appropriate system packages for
+the installed ROS distribution, so they do not need to be installed separately
+with individual `apt install` commands. The `rosdep` command must be run after
+cloning the repository and from the repository root.
 
 ### 2. Clone the repository
 
