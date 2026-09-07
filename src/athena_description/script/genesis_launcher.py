@@ -193,26 +193,25 @@ def main() :
                 ]
             )
         )
+        left_cam = scene.add_camera(res=(1280, 720), fov=110)
+            
+        right_cam = scene.add_camera(res=(1280, 720), fov=110)
+    
+
+        left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
+        right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
+
+        imu_link = rover.get_link("zed2i_camera_center")
+
+        imu = scene.add_sensor(
+            gs.sensors.IMU(
+                entity_idx=rover.idx,
+                link_idx_local=imu_link.idx_local,
+            )
+        )
         scene.build()
     finally:
         os.unlink(resolved_urdf_path)
-
-    left_cam = scene.add_camera(res=(1280, 720), fov=110)
-            
-    right_cam = scene.add_camera(res=(1280, 720), fov=110)
-    
-
-    left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
-    right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
-
-    imu_link = rover.get_link("zed2i_camera_center")
-
-    imu = scene.add_sensor(
-        gs.sensors.IMU(
-            entity_idx=rover.idx,
-            link_idx_local=imu_link.idx_local,
-        )
-    )
 
     steer_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in STEER_JOINTS]
     wheel_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in WHEEL_JOINTS]
