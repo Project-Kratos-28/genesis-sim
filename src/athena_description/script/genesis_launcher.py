@@ -11,8 +11,11 @@ from rosgraph_msgs.msg import Clock as ClockMsg
 from builtin_interfaces.msg import Time
 import numpy as np
 from cv_bridge import CvBridge
+from ament_index_python.packages import get_package_share_directory
 
-URDF_PATH = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
+PACKAGE_SHARE = get_package_share_directory("athena_description")
+URDF_PATH = os.path.join(PACKAGE_SHARE, "urdf", "athena_rover-6.urdf")
+GROUND_TEXTURE_PATH = os.path.join(PACKAGE_SHARE, "ground_noise.png")
 
 WIDTH, HEIGHT, FOV_DEG = 1280, 720, 110.0
 BASELINE = 0.12
@@ -146,7 +149,7 @@ def main() :
     scene.add_entity(
         gs.morphs.Plane(),
         surface=gs.surfaces.Rough(
-            diffuse_texture=gs.textures.ImageTexture(image_path=os.path.expanduser("~/Desktop/kratos/src/athena_description/ground_noise.png"))
+            diffuse_texture=gs.textures.ImageTexture(image_path=GROUND_TEXTURE_PATH)
         )
     )
 

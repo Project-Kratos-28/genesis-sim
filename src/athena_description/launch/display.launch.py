@@ -1,12 +1,11 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-
 import os
+from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-
-
-    urdf_file = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
+    package_share = get_package_share_directory("athena_description")
+    urdf_file = os.path.join(package_share, "urdf", "athena_rover-6.urdf")
 
     with open(urdf_file, 'r') as f:
         robot_description = f.read()
