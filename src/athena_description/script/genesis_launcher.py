@@ -5,6 +5,7 @@ import genesis as gs
 import os
 import math
 import random
+import tempfile
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image, Imu, CameraInfo
 from rosgraph_msgs.msg import Clock as ClockMsg
@@ -42,6 +43,22 @@ STEER_JOINTS = ["steer_front_left", "steer_front_right", "steer_rear_left", "ste
 WHEEL_JOINTS = ["wheel_front_left_spin", "wheel_front_right_spin", "wheel_rear_left_spin", "wheel_rear_right_spin"]
  
 MAX_STEER_ANGLE = 1.57
+
+def create_genesis_urdf():
+    with open(URDF_PATH, "r") as urdf_file:
+        urdf = urdf_file.read()
+
+    urdf = urdf.replace(
+        "package://athena_description",
+        PACKAGE_SHARE,
+    )
+    file_descriptor, resolved_urdf_path = tempfile.mkstemp(
+        suffix=".urdf",
+        prefix="athena_rover_",
+    )
+    with os.fdopen(file_descriptor, "w") as resolved_urdf_file:
+        resolved_urdf_file.write(urdf)
+    return resolved_urdf_path
 
 def compute_wheel_states(v, wz):
     steer_angles, wheel_ang_vels = [], []
@@ -160,38 +177,41 @@ def main() :
             gs.morphs.Box(pos=(x, y, 0.15), size=(0.3, 0.3, 0.3), fixed=True),
             surface=gs.surfaces.Rough(color=(random.random(), random.random(), random.random(), 1.0)),
         )
-    rover = scene.add_entity(
-        gs.morphs.URDF(
-            file=URDF_PATH, 
-            fixed=False,
-            pos=(0.0, 0.0, SPAWN_Z),
-            merge_fixed_links=True,
-            links_to_keep=[
-                "base_footprint",
-                "zed2i_camera_center",
-                "zed2i_left_camera_frame_optical",
-                "zed2i_right_camera_frame_optical"
-            ]
+    resolved_urdf_path = create_genesis_urdf()
+    try:
+        rover = scene.add_entity(
+            gs.morphs.URDF(
+                file=resolved_urdf_path,
+                fixed=False,
+                pos=(0.0, 0.0, SPAWN_Z),
+                merge_fixed_links=True,
+                links_to_keep=[
+                    "base_footprint",
+                    "zed2i_camera_center",
+                    "zed2i_left_camera_frame_optical",
+                    "zed2i_right_camera_frame_optical"
+                ]
+            )
         )
-    )
-    left_cam = scene.add_camera(res=(1280, 720), fov=110)
+        left_cam = scene.add_camera(res=(1280, 720), fov=110)
             
-    right_cam = scene.add_camera(res=(1280, 720), fov=110)
+        right_cam = scene.add_camera(res=(1280, 720), fov=110)
     
 
-    left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
-    right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
+        left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
+        right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
 
-    imu_link = rover.get_link("zed2i_camera_center")
+        imu_link = rover.get_link("zed2i_camera_center")
 
-    imu = scene.add_sensor(
-        gs.sensors.IMU(
-            entity_idx=rover.idx,
-            link_idx_local=imu_link.idx_local,
+        imu = scene.add_sensor(
+            gs.sensors.IMU(
+                entity_idx=rover.idx,
+                link_idx_local=imu_link.idx_local,
+            )
         )
-    )
-
-    scene.build()
+        scene.build()
+    finally:
+        os.unlink(resolved_urdf_path)
 
     steer_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in STEER_JOINTS]
     wheel_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in WHEEL_JOINTS]
