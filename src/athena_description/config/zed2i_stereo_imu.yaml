@@ -1,0 +1,78 @@
+%YAML:1.0
+File.version: "1.0"
+
+Camera.type: "PinHole"
+
+Camera1.fx: 448.15
+Camera1.fy: 448.15
+Camera1.cx: 640.0
+Camera1.cy: 360.0
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
+
+Camera2.fx: 448.15
+Camera2.fy: 448.15
+Camera2.cx: 640.0
+Camera2.cy: 360.0
+Camera2.k1: 0.0
+Camera2.k2: 0.0
+Camera2.p1: 0.0
+Camera2.p2: 0.0
+
+Camera.width: 1280
+Camera.height: 720
+Camera.fps: 20          # your CAMERA_DECIMATION=5 at dt=0.01 -> 20 Hz publish rate
+Camera.RGB: 1
+
+# Right camera pose relative to left (pure baseline, rectified)
+Stereo.T_c1_c2: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [1.0, 0.0, 0.0, 0.12,
+          0.0, 1.0, 0.0, 0.0,
+          0.0, 0.0, 1.0, 0.0,
+          0.0, 0.0, 0.0, 1.0]
+
+Stereo.b: 0.12
+Stereo.ThDepth: 40.0
+
+# IMU pose relative to left camera's body (zed2i_camera_center)
+IMU.T_b_c1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [0.0, 0.0, 1.0, -0.01,
+          -1.0, 0.0, 0.0, 0.06,
+          0.0, -1.0, 0.0, 0.0,
+          0.0, 0.0, 0.0, 1.0]
+
+IMU.Frequency: 100.0      # publish_imu runs every sim step at dt=0.01
+
+# Placeholder noise params — Genesis's simulated IMU noise model isn't
+# documented here, so these are generic MEMS-grade starting values.
+# Tune them against your actual sim IMU output (or set near-zero if
+# Genesis adds no noise at all) rather than trusting these blindly.
+IMU.NoiseGyro: 1.7e-4
+IMU.NoiseAcc: 2.0e-3
+IMU.GyroWalk: 1.9e-5
+IMU.AccWalk: 3.0e-3
+
+ORBextractor.nFeatures: 1200
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500.0

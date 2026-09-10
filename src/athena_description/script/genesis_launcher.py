@@ -12,7 +12,10 @@ from builtin_interfaces.msg import Time
 import numpy as np
 from cv_bridge import CvBridge
 
+from ament_index_python.packages import get_package_share_directory
+
 URDF_PATH = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
+
 
 WIDTH, HEIGHT, FOV_DEG = 1280, 720, 110.0
 BASELINE = 0.12
@@ -40,6 +43,8 @@ WHEEL_JOINTS = ["wheel_front_left_spin", "wheel_front_right_spin", "wheel_rear_l
  
 MAX_STEER_ANGLE = 1.57
 
+CAMERA_DECIMATION = 5
+
 def compute_wheel_states(v, wz):
     steer_angles, wheel_ang_vels = [], []
     for name in WHEEL_ORDER:
@@ -55,6 +60,8 @@ def compute_wheel_states(v, wz):
         steer_angles.append(angle)
         wheel_ang_vels.append(speed / WHEEL_RADIUS)
     return steer_angles, wheel_ang_vels
+
+
 
 class GenesisZedBridge(Node):
     def __init__(self, width, height, fov_deg):
@@ -79,9 +86,21 @@ class GenesisZedBridge(Node):
 
         cx, cy = width/2.0, height/2.0
 
-        self.K = [fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0]
-        self.P_left  = [fx, 0.0, cx, 0.0, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
-        self.P_right = [fx, 0.0, cx, -fx*BASELINE, 0.0, fy, cy, 0.0, 0.0, 0.0, 1.0, 0.0]
+        self.K = [
+            fx, 0.0, cx, 
+            0.0, fy, cy, 
+            0.0, 0.0, 1.0
+        ]
+        self.P_left  = [
+            fx, 0.0, cx, 0.0, 
+            0.0, fy, cy, 0.0, 
+            0.0, 0.0, 1.0, 0.0
+        ]
+        self.P_right = [
+            fx, 0.0, cx, -fx*BASELINE, 
+            0.0, fy, cy, 0.0, 
+            0.0, 0.0, 1.0, 0.0
+        ]
 
         self.sim_time = 0.0
 
@@ -140,26 +159,26 @@ def main() :
     rclpy.init()
     gs.init(backend=gs.gpu)
     scene = gs.Scene(
-    sim_options=gs.options.SimOptions(dt=0.01),
+        sim_options=gs.options.SimOptions(dt=0.01),
         show_viewer=True
     )
     scene.add_entity(
         gs.morphs.Plane(),
         surface=gs.surfaces.Rough(
-            diffuse_texture=gs.textures.ImageTexture(image_path=os.path.expanduser("~/Desktop/kratos/src/athena_description/ground_noise.png"))
+            diffuse_texture=gs.textures.ImageTexture(image_path=os.path.expanduser("~/Desktop/kratos/src/athena_description/img/ground_noise.png"))
         )
     )
 
     for i in range(15):
-        x = random.uniform(1.0, 6.0)
-        y = random.uniform(3.0, 10.0)
+        y = random.uniform(-3.0, 3.0)
+        x = random.uniform(3.0, 8.0)
         scene.add_entity(
             gs.morphs.Box(pos=(x, y, 0.15), size=(0.3, 0.3, 0.3), fixed=True),
             surface=gs.surfaces.Rough(color=(random.random(), random.random(), random.random(), 1.0)),
         )
     rover = scene.add_entity(
         gs.morphs.URDF(
-            file=URDF_PATH, 
+            file=URDF_PATH,
             fixed=False,
             pos=(0.0, 0.0, SPAWN_Z),
             merge_fixed_links=True,
@@ -202,6 +221,8 @@ def main() :
 
     node = GenesisZedBridge(WIDTH, HEIGHT, FOV_DEG)
 
+    step_count = 0
+
     try :
         while rclpy.ok():
             steer_angles, wheel_ang_vels = compute_wheel_states(node.v, node.wz)
@@ -216,17 +237,22 @@ def main() :
 
             node.publish_clock()
 
-            rgb_l, _, _, _ = left_cam.render(rgb=True)
-            rgb_r, _, _, _ = right_cam.render(rgb=True)
-
-            node.publish_image(node.left_cam_pub_, rgb_l, "zed2i_left_camera_frame_optical")
-            node.publish_image(node.right_cam_pub_, rgb_r, "zed2i_right_camera_frame_optical")
-            node.publish_camera_info(node.left_cam_info_pub_, "zed2i_left_camera_frame_optical", node.P_left)
-            node.publish_camera_info(node.right_cam_info_pub_, "zed2i_right_camera_frame_optical", node.P_right)
-
             imu_data = imu.read() if hasattr(imu, "read") else imu.get_data()
             node.publish_imu(imu_data, "zed2i_camera_center")
 
+
+            if step_count % CAMERA_DECIMATION == 0:
+                left_cam.move_to_attach()
+                right_cam.move_to_attach()
+ 
+                rgb_l, _, _, _ = left_cam.render(rgb=True)
+                rgb_r, _, _, _ = right_cam.render(rgb=True)
+ 
+                node.publish_image(node.left_cam_pub_, rgb_l, "zed2i_left_camera_frame_optical")
+                node.publish_image(node.right_cam_pub_, rgb_r, "zed2i_right_camera_frame_optical")
+                node.publish_camera_info(node.left_cam_info_pub_, "zed2i_left_camera_frame_optical", node.P_left)
+                node.publish_camera_info(node.right_cam_info_pub_, "zed2i_right_camera_frame_optical", node.P_right)
+            step_count+=1
             rclpy.spin_once(node, timeout_sec=0)
 
     finally:

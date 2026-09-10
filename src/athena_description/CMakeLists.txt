@@ -10,6 +10,8 @@ install(
     meshes
     urdf
     launch
+    config
+    img
   DESTINATION share/${PROJECT_NAME}
 )
 install( PROGRAMS

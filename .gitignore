@@ -7,5 +7,6 @@ frame*
 ZED*
 kratos
 
-src/zed-ros2-wrapper
+src/athena_description/launch/__pycache__/
 src/athena_description/ground_generator.py
+src/athena_description/.claude/

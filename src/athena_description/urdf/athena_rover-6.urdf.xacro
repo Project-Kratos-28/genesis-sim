@@ -193,7 +193,7 @@
     <child  link="steer_coupler_front_left"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.79" upper="0.79" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
@@ -226,7 +226,7 @@
     <origin xyz="0.0 0.0 -0.186" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
     <dynamics damping="0.01" friction="0.05"/>
-      <limit upper="3.14"/>
+      <limit upper="3.14" velocity="10.0" effort="100.0"/>
   </joint>
 
   <!-- ================================================================ -->
@@ -292,7 +292,7 @@
     <child  link="steer_coupler_rear_left"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
@@ -390,7 +390,7 @@
     <child  link="steer_coupler_front_right"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
@@ -488,7 +488,7 @@
     <child  link="steer_coupler_rear_right"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
