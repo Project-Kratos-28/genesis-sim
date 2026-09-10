@@ -7,6 +7,23 @@
 <!-- All meshes exported in mm; scale="0.001 0.001 0.001" converts to metres.   -->
 <!-- Package path: package://athena_description/meshes/                          -->
 <robot name="athena_rover">
+  <!-- Livox Mid-360 -->
+  <link name="livox_mid360_link">
+  <visual>
+    <geometry><cylinder radius="0.03" length="0.05"/></geometry>
+  </visual>
+  <inertial>
+    <mass value="0.265"/>
+    <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/>
+  </inertial>
+  </link>
+
+  <joint name="livox_mid360_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="livox_mid360_link"/>
+    <origin xyz="0 0 0.08" rpy="0 0 0"/>
+  </joint>
+
   <!-- Camera mounting point (the threaded screw hole in the bottom) -->
   <link name="zed2i_camera_link"/>
   <!-- Camera Center -->
