@@ -1,0 +1,9 @@
+[submodule "src/vision_opencv"]
+	path = src/vision_opencv
+	url = https://github.com/ros-perception/vision_opencv
+[submodule "src/zed-ros2-wrapper"]
+	path = src/zed-ros2-wrapper
+	url = https://github.com/stereolabs/zed-ros2-wrapper
+[submodule "src/orb_slam3_ros2"]
+	path = src/orb_slam3_ros2
+	url = https://github.com/zang09/orb_slam3_ros2
