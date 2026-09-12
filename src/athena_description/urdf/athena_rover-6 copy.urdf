@@ -8,7 +8,7 @@
 <!-- Package path: package://athena_description/meshes/                          -->
 <robot name="athena_rover">
   
-<!-- Camera mounting point (the threaded screw hole in the bottom) -->
+  <!-- Camera mounting point (the threaded screw hole in the bottom) -->
   <link name="zed2i_camera_link"/>
   <!-- Camera Center -->
   <link name="zed2i_camera_center">
@@ -66,7 +66,7 @@
     <parent link="zed2i_right_camera_frame"/>
     <child link="zed2i_right_camera_frame_optical"/>
   </joint>
-
+  ⁠
   <material name="aluminium">
     <color rgba="0.75 0.75 0.80 1.0"/>
   </material>
@@ -118,16 +118,18 @@
       </geometry>
       <material name="aluminium"/>
     </visual>
+<!--
     <collision>
-      <origin rpy="1.5708 0 0" xyz="0.0 0.0 0.0"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
         <mesh filename="package://athena_description/meshes/collision/livox-mid-360-asm.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
+-->
     <inertial>
       <mass value="1.2"/>
-      <origin rpy="0 0 0" xyz="0.00 0.00 0.00"/>
-      <inertia ixx="1e-4" ixy="1e-4" ixz="1e-4" iyy="1e-4" iyz="1e-4" izz="1e-4"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <inertia ixx="1e-4" ixy="0.0" ixz="0.0" iyy="1e-4" iyz="0.0" izz="1e-4"/>
     </inertial>
   </link>
   <joint name="livox_mid360_joint" type="fixed">
