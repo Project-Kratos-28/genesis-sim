@@ -118,16 +118,18 @@
       </geometry>
       <material name="aluminium"/>
     </visual>
+<!-- Prevent collision with Genesis LIDAR rays and the mesh
     <collision>
       <origin rpy="1.5708 0 0" xyz="0.0 0.0 0.0"/>
       <geometry>
         <mesh filename="package://athena_description/meshes/collision/livox-mid-360-asm.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
+-->
     <inertial>
       <mass value="1.2"/>
       <origin rpy="0 0 0" xyz="0.00 0.00 0.00"/>
-      <inertia ixx="1e-4" ixy="1e-4" ixz="1e-4" iyy="1e-4" iyz="1e-4" izz="1e-4"/>
+      <inertia ixx="1e-4" ixy="0.0" ixz="0.0" iyy="1e-4" iyz="0.0" izz="1e-4"/>
     </inertial>
   </link>
   <joint name="livox_mid360_joint" type="fixed">
