@@ -5,7 +5,7 @@ import os
 def generate_launch_description():
 
 
-    urdf_path = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
+    urdf_path = os.path.expanduser("~/genesis-sim/src/athena_description/urdf/athena_rover-6.urdf")
 
     with open(urdf_path, 'r') as f:
         robot_description = f.read()

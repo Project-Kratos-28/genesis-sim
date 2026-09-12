@@ -10,8 +10,8 @@ def generate_launch_description():
                     name='orb_slam3_stereo_inertial',
                     output='screen',
                     arguments=[
-                        os.path.expanduser("~/Desktop/kratos/src/athena_description/config/ORBvoc.txt"),
-                        os.path.expanduser("~/Desktop/kratos/src/athena_description/config/zed2i_stereo_imu.yaml"),
+                        os.path.expanduser("~/ORB_SLAM3/Vocabulary/ORBvoc.txt"),
+                        os.path.expanduser("~/genesis-sim/src/athena_description/config/zed2i_stereo_imu.yaml"),
                     ],
                     remappings=[
                         ('/camera/left', '/zed2i/left/image_rect_color'),
