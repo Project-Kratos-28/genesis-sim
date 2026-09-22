@@ -345,7 +345,7 @@ def main() :
                 fov=(360.0, 59.0),
                 n_points=(1024, 128),
             ),
-            pos_offset=(0.0, 0.0, 0.20),
+            pos_offset=(0.0, 0.0, 0.19),
             max_range=LIDAR_MAX_RANGE,
             no_hit_value=LIDAR_MAX_RANGE,
             return_world_frame=False,
