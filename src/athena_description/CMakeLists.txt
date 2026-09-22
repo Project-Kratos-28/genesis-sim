@@ -13,10 +13,6 @@ install(
     img
   DESTINATION share/${PROJECT_NAME}
 )
-install(
-  FILES ground_noise.png
-  DESTINATION share/${PROJECT_NAME}
-)
 install( PROGRAMS
   script/genesis_launcher.py
   script/Ackermann.py
