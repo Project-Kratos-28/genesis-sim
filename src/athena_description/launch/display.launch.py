@@ -7,9 +7,8 @@ def generate_launch_description():
     package_share = get_package_share_directory("athena_description")
     urdf_file = os.path.join(package_share, "urdf", "athena_rover-6.urdf")
 
-    with open(urdf_path, 'r') as f:
+    with open(urdf_file, 'r') as f:
         robot_description = f.read()
-
 
     return LaunchDescription([
         Node(

@@ -22,7 +22,7 @@ from ament_index_python.packages import get_package_share_directory
 
 PACKAGE_SHARE = get_package_share_directory("athena_description")
 URDF_PATH = os.path.join(PACKAGE_SHARE, "urdf", "athena_rover-6.urdf")
-GROUND_TEXTURE_PATH = os.path.join(PACKAGE_SHARE, "ground_noise.png")
+GROUND_TEXTURE_PATH = os.path.join(PACKAGE_SHARE, "img", "ground_noise.png")
 
 WIDTH, HEIGHT, FOV_DEG = 1280, 720, 110.0
 BASELINE = 0.12
@@ -344,39 +344,38 @@ def main() :
             )
         )
     
-    left_cam = scene.add_camera(res=(1280, 720), fov=110)        
-    right_cam = scene.add_camera(res=(1280, 720), fov=110)
-    
+        left_cam = scene.add_camera(res=(1280, 720), fov=110)        
+        right_cam = scene.add_camera(res=(1280, 720), fov=110)
 
         left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
         right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
 
         imu_link = rover.get_link("zed2i_camera_center")
-    livox_link = rover.get_link("livox_mid360_link")
-    base_link = rover.get_link("base_footprint")
-    
-    livox = scene.add_sensor(
-        gs.sensors.Raycaster(
-            entity_idx=rover.idx,
-            link_idx_local=livox_link.idx_local,
-            pattern=gs.sensors.SphericalPattern(
-                fov=(360.0, 59.0),
-                n_points=(1024, 128),
-            ),
-            pos_offset=(0.0, 0.0, 0.19),
-            max_range=LIDAR_MAX_RANGE,
-            no_hit_value=LIDAR_MAX_RANGE,
-            return_world_frame=False,
-            return_points=True,
+        livox_link = rover.get_link("livox_mid360_link")
+        base_link = rover.get_link("base_footprint")
+        
+        livox = scene.add_sensor(
+            gs.sensors.Raycaster(
+                entity_idx=rover.idx,
+                link_idx_local=livox_link.idx_local,
+                pattern=gs.sensors.SphericalPattern(
+                    fov=(360.0, 59.0),
+                    n_points=(1024, 128),
+                ),
+                pos_offset=(0.0, 0.0, 0.19),
+                max_range=LIDAR_MAX_RANGE,
+                no_hit_value=LIDAR_MAX_RANGE,
+                return_world_frame=False,
+                return_points=True,
+            )
         )
-    )
 
-    livox_imu = scene.add_sensor(
-        gs.sensors.IMU(
-            entity_idx=rover.idx,
-            link_idx_local=livox_link.idx_local,
+        livox_imu = scene.add_sensor(
+            gs.sensors.IMU(
+                entity_idx=rover.idx,
+                link_idx_local=livox_link.idx_local,
+            )
         )
-    )
         imu = scene.add_sensor(
             gs.sensors.IMU(
                 entity_idx=rover.idx,
@@ -385,7 +384,9 @@ def main() :
         )
         scene.build()
 
-    print(livox_link.get_pos())
+        print(livox_link.get_pos())
+        print(imu_link.get_pos())
+    
     finally:
         os.unlink(resolved_urdf_path)
 
