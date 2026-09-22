@@ -108,7 +108,7 @@
   <joint name="zed2i_mount_joint" type="fixed">
     <parent link="base_link"/>
     <child link="zed2i_camera_link"/>
-    <origin rpy="0 0 0" xyz="0.2 0 0.3"/>
+    <origin rpy="0 0 0" xyz="0.2 0 0.1"/>
   </joint>
   <link name="livox_mid360_link">
     <visual>

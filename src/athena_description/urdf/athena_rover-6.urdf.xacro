@@ -86,7 +86,7 @@
   <joint name="livox_mid360_joint" type="fixed">
     <parent link="base_link"/>
     <child link="livox_mid360_link"/>
-    <origin xyz="0 0 0.175" rpy="0 0 0"/>
+    <origin xyz="0 0 0.175" rpy="3.1416 0 0"/>
   </joint>
 
   <link name="bogey_left">
