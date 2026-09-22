@@ -3,6 +3,8 @@ install/
 log/
 .venv/
 .vscode/
+.venv/
+.vscode/
 
 .git/
 frame*
