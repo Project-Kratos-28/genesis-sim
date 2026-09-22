@@ -5,6 +5,7 @@ import genesis as gs
 import os
 import math
 import random
+import tempfile
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import TransformStamped
 from sensor_msgs.msg import Image, Imu, CameraInfo, PointCloud2, PointField
@@ -19,7 +20,9 @@ from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
 
 from ament_index_python.packages import get_package_share_directory
 
-URDF_PATH = os.path.expanduser("~/genesis-sim/src/athena_description/urdf/athena_rover-6.urdf")
+PACKAGE_SHARE = get_package_share_directory("athena_description")
+URDF_PATH = os.path.join(PACKAGE_SHARE, "urdf", "athena_rover-6.urdf")
+GROUND_TEXTURE_PATH = os.path.join(PACKAGE_SHARE, "ground_noise.png")
 
 WIDTH, HEIGHT, FOV_DEG = 1280, 720, 110.0
 BASELINE = 0.12
@@ -52,6 +55,23 @@ LIDAR_DECIMATION = 1
 LIDAR_RAYS = 524288
 LIDAR_MAX_RANGE = 100.0
 LIDAR_MIN_RANGE = 0.1
+
+def create_genesis_urdf():
+    with open(URDF_PATH, "r") as urdf_file:
+        urdf = urdf_file.read()
+
+    urdf = urdf.replace(
+        "package://athena_description",
+        PACKAGE_SHARE,
+    )
+    file_descriptor, resolved_urdf_path = tempfile.mkstemp(
+        suffix=".urdf",
+        prefix="athena_rover_",
+    )
+    with os.fdopen(file_descriptor, "w") as resolved_urdf_file:
+        resolved_urdf_file.write(urdf)
+    return resolved_urdf_path
+
 
 class LivoxRayPattern(gs.sensors.RaycastPattern):
     def __init__(self, directions):
@@ -286,11 +306,7 @@ def main() :
     scene.add_entity(
         gs.morphs.Plane(),
         surface=gs.surfaces.Rough(
-            diffuse_texture=gs.textures.ImageTexture(
-                image_path=os.path.expanduser(
-                    "~/genesis-sim/src/athena_description/img/ground_noise.png"
-                )
-            )
+            diffuse_texture=gs.textures.ImageTexture(image_path=GROUND_TEXTURE_PATH)
         )
     )
 
@@ -309,31 +325,33 @@ def main() :
                 ),
             )
         )
-
-    rover = scene.add_entity(
-        gs.morphs.URDF(
-            file=URDF_PATH,
-            fixed=False,
-            pos=(0.0, 0.0, SPAWN_Z),
-            merge_fixed_links=True,
-            links_to_keep=[
-                "base_footprint",
-                "zed2i_camera_center",
-                "zed2i_left_camera_frame_optical",
-                "zed2i_right_camera_frame_optical",
-                "livox_mid360_link",
-            ]
+    
+    resolved_urdf_path = create_genesis_urdf()
+    try:
+        rover = scene.add_entity(
+            gs.morphs.URDF(
+                file=resolved_urdf_path,
+                fixed=False,
+                pos=(0.0, 0.0, SPAWN_Z),
+                merge_fixed_links=True,
+                links_to_keep=[
+                    "base_footprint",
+                    "zed2i_camera_center",
+                    "zed2i_left_camera_frame_optical",
+                    "zed2i_right_camera_frame_optical",
+                    "livox_mid360_link",
+                ]
+            )
         )
-    )
     
     left_cam = scene.add_camera(res=(1280, 720), fov=110)        
     right_cam = scene.add_camera(res=(1280, 720), fov=110)
     
 
-    left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
-    right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
+        left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
+        right_cam.attach(rover.get_link("zed2i_right_camera_frame_optical"), offset_T=np.eye(4))
 
-    imu_link = rover.get_link("zed2i_camera_center")
+        imu_link = rover.get_link("zed2i_camera_center")
     livox_link = rover.get_link("livox_mid360_link")
     base_link = rover.get_link("base_footprint")
     
@@ -359,16 +377,17 @@ def main() :
             link_idx_local=livox_link.idx_local,
         )
     )
-    imu = scene.add_sensor(
-        gs.sensors.IMU(
-            entity_idx=rover.idx,
-            link_idx_local=imu_link.idx_local,
+        imu = scene.add_sensor(
+            gs.sensors.IMU(
+                entity_idx=rover.idx,
+                link_idx_local=imu_link.idx_local,
+            )
         )
-    )
-
-    scene.build()
+        scene.build()
 
     print(livox_link.get_pos())
+    finally:
+        os.unlink(resolved_urdf_path)
 
     steer_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in STEER_JOINTS]
     wheel_dofs = [rover.get_joint(name).dofs_idx_local[0] for name in WHEEL_JOINTS]
