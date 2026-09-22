@@ -5,6 +5,7 @@ import genesis as gs
 import os
 import math
 import random
+import re
 import tempfile
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import TransformStamped
@@ -60,9 +61,15 @@ def create_genesis_urdf():
     with open(URDF_PATH, "r") as urdf_file:
         urdf = urdf_file.read()
 
-    urdf = urdf.replace(
-        "package://athena_description",
-        PACKAGE_SHARE,
+    def resolve_package_uri(match):
+        package_name, relative_path = match.groups()
+        package_share = get_package_share_directory(package_name)
+        return os.path.join(package_share, relative_path.lstrip("/"))
+
+    urdf = re.sub(
+        r"package://([^/\s\"]+)(/[^\s\"]*)",
+        resolve_package_uri,
+        urdf,
     )
     file_descriptor, resolved_urdf_path = tempfile.mkstemp(
         suffix=".urdf",

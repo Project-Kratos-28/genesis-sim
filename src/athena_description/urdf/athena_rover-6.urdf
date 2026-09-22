@@ -15,7 +15,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.01 0 0.0"/>
       <geometry>
-        <mesh filename="/opt/ros/jazzy/share/zed_description/meshes/zed2i.stl"/>
+        <mesh filename="package://zed_description/meshes/zed2i.stl"/>
       </geometry>
       <material name="zed_mat">
         <color rgba="0.25 0.25 0.25 1.0"/>
@@ -24,7 +24,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.01 0 0.0"/>
       <geometry>
-        <mesh filename="/opt/ros/jazzy/share/zed_description/meshes/zed2i.stl"/>
+        <mesh filename="package://zed_description/meshes/zed2i.stl"/>
       </geometry>
     </collision>
     <inertial>
