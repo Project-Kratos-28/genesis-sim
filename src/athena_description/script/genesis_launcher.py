@@ -51,7 +51,7 @@ CAMERA_DECIMATION = 5
 LIDAR_DECIMATION = 1
 LIDAR_RAYS = 524288
 LIDAR_MAX_RANGE = 100.0
-
+LIDAR_MIN_RANGE = 0.1
 
 class LivoxRayPattern(gs.sensors.RaycastPattern):
     def __init__(self, directions):
@@ -256,7 +256,7 @@ class GenesisZedBridge(Node):
         
         valid = (
             np.isfinite(distances)
-            & (distances > 0.0)
+            & (distances >= LIDAR_MIN_RANGE)
             & (distances < LIDAR_MAX_RANGE)
         )
         self.publish_point_cloud(points[valid], "livox_mid360_link")
@@ -345,6 +345,7 @@ def main() :
                 fov=(360.0, 59.0),
                 n_points=(1024, 128),
             ),
+            pos_offset=(0.0, 0.0, 0.20),
             max_range=LIDAR_MAX_RANGE,
             no_hit_value=LIDAR_MAX_RANGE,
             return_world_frame=False,
