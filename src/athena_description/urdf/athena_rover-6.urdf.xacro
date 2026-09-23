@@ -4,11 +4,7 @@
 <!-- Package path: package://athena_description/meshes/                          -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="athena_rover">
 
-  <xacro:include filename="$(find zed_wrapper)/urdf/zed_macro.urdf.xacro"/>
-
-  <xacro:zed_camera name="zed2i" model="zed2i" enable_gnss="false">
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-  </xacro:zed_camera>
+  ⁠<xacro:include filename="$(find athena_description)/urdf/livox_mid360.xacro"/>
 
   <material name="aluminium">
     <color rgba="0.75 0.75 0.80 1.0"/>
@@ -60,6 +56,37 @@
     <parent link="base_link"/>
     <child link="zed2i_camera_link"/>
     <origin xyz="0.2 0 0.3" rpy="0 0 0"/>
+  </joint>
+
+  <link name="livox_mid360_link">
+    <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="1.5708 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/livox-mid-360-asm.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="aluminium"/>
+    </visual>
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="1.5708 0 0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/collision/livox-mid-360-asm.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.2"/>
+      <origin xyz="0.00 0.00 0.00" rpy="0 0 0"/>
+      <inertia ixx="1e-4" ixy="0.0" ixz="0.0"
+           iyy="1e-4" iyz="0.0"
+               izz="1e-4"/>
+    </inertial>
+  </link>
+
+  <joint name="livox_mid360_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="livox_mid360_link"/>
+    <origin xyz="0 0 0.175" rpy="3.1416 0 0"/>
   </joint>
 
   <link name="bogey_left">
@@ -193,7 +220,7 @@
     <child  link="steer_coupler_front_left"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.79" upper="0.79" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
@@ -226,7 +253,7 @@
     <origin xyz="0.0 0.0 -0.186" rpy="0 0 0"/>
     <axis xyz="0 1 0"/>
     <dynamics damping="0.01" friction="0.05"/>
-      <limit upper="3.14"/>
+      <limit upper="3.14" velocity="10.0" effort="100.0"/>
   </joint>
 
   <!-- ================================================================ -->
@@ -292,7 +319,7 @@
     <child  link="steer_coupler_rear_left"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
@@ -390,7 +417,7 @@
     <child  link="steer_coupler_front_right"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
@@ -488,7 +515,7 @@
     <child  link="steer_coupler_rear_right"/>
     <origin xyz="0.0 0.0 -0.111" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
-    <limit lower="-0.7854" upper="0.7854" effort="10" velocity="1.0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
 
