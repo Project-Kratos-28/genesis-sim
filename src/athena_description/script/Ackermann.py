@@ -14,7 +14,7 @@ WHEELBASE = 0.738  # m
 # tan() blowing up near +-90 deg. The rover's own steer joints only go to
 # about +-45 deg (0.79 rad) anyway, so this is a generous safety bound.
 MAX_STEERING_ANGLE = 1.57  # rad (~74 deg)
- 
+
  
 class AckermannToTwist(Node):
     def __init__(self):

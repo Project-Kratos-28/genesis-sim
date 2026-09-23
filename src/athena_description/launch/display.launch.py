@@ -1,14 +1,31 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from ament_index_python.packages import get_package_share_directory
 import os
 
 def generate_launch_description():
-
-
-    urdf_path = os.path.expanduser("~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf")
+    urdf_path = os.path.join(
+        get_package_share_directory('athena_description'),
+        'urdf',
+        'athena_rover-6.urdf',
+    )
 
     with open(urdf_path, 'r') as f:
         robot_description = f.read()
+
+    steering_mode_arg = DeclareLaunchArgument(
+        'steering_mode',
+        default_value='ackermann',
+        description=(
+            "Initial wheel-kinematics strategy: 'ackermann' "
+            "(front-steer-only, rear locked), 'differential' "
+            "(skid-steer, no wheel turns), or 'independent' "
+            "(full 4-wheel steer / crab / point turns). Can also be "
+            "changed at runtime by publishing to /steering_mode."
+        ),
+    )
 
 
     return LaunchDescription([
@@ -32,18 +49,9 @@ def generate_launch_description():
             package='athena_description', 
             executable='genesis_launcher.py', 
             name='genesis_zed_bridge',
-            output='screen'
-        ),
-        Node(
-            package='athena_description',
-            executable='Ackermann.py',
-            name='ackermann_to_twist',
             output='screen',
             parameters=[{
-                'ackermann_topic': '/ackermann_cmd',
-                'cmd_vel_topic': '/cmd_vel',
-                'stamped': True,
-                'use_sim_time': True,
-            }],
+                'steering_mode': LaunchConfiguration('steering_mode')
+            }]
         ),
     ])

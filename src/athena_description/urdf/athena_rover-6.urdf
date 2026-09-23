@@ -12,7 +12,7 @@
   <!-- Camera Center -->
   <link name="zed2i_camera_center">
     <visual>
-      <origin rpy="0 0 0" xyz="-0.01 0 0.0"/>
+      <origin rpy="3.1415 0 0" xyz="-0.01 0 0.0"/>
       <geometry>
         <mesh filename="/opt/ros/jazzy/share/zed_description/meshes/zed2i.stl"/>
       </geometry>
@@ -43,7 +43,7 @@
   <joint name="zed2i_left_camera_joint" type="fixed">
     <parent link="zed2i_camera_center"/>
     <child link="zed2i_left_camera_frame"/>
-    <origin rpy="0 0 0" xyz="-0.01 0.06 0"/>
+    <origin rpy="0 3.1415 0" xyz="-0.01 0.06 0"/>
   </joint>
   <link name="zed2i_left_camera_frame_optical"/>
   <joint name="zed2i_left_camera_joint_optical" type="fixed">
