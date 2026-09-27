@@ -26,8 +26,8 @@ class AckermannSteering(SteeringMode):
                 vy = wz * xr
                 angle = math.atan2(vy, vx)
                 speed = math.hypot(vx, vy)
-                if abs(angle) > math.pi/2 :
-                    angle = math.atan2(vy, vx)
+                if abs(angle) > math.pi / 2:
+                    angle = math.atan2(-vy, -vx)
                     speed = -speed
                 angle = max(-MAX_STEER_ANGLE, min(MAX_STEER_ANGLE, angle))
 

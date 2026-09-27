@@ -38,7 +38,7 @@ SIM_DT=0.01
 
 
 WHEEL_BOTTOM_TO_FOOTPRINT = -0.2145
-SPAWN_CLEARANCE = 0.03
+SPAWN_CLEARANCE = 1.5
 SPAWN_Z = -WHEEL_BOTTOM_TO_FOOTPRINT + SPAWN_CLEARANCE
 
 WHEEL_RADIUS = 0.115
@@ -255,13 +255,6 @@ class GenesisZedBridge(Node):
 
         self.imu_pub_.publish(msg)
 
-        if int(self.sim_time * 10) % 10 == 0:
-            print(
-                f"IMU t={self.sim_time:.2f} "
-                f"acc=[{acc[0]:+.3f}, {acc[1]:+.3f}, {acc[2]:+.3f}] "
-                f"gyro=[{gyro[0]:+.3f}, {gyro[1]:+.3f}, {gyro[2]:+.3f}]"
-            )
-
     def publish_base_tf(self, pos, quat):
         t = TransformStamped()
         t.header.stamp = self.stamp()
@@ -306,27 +299,37 @@ def main() :
         sim_options=gs.options.SimOptions(dt=0.01),
         show_viewer=True
     )
-    scene.add_entity(
-        gs.morphs.Plane(),
-        surface=gs.surfaces.Rough(
-            diffuse_texture=gs.textures.ImageTexture(image_path=os.path.expanduser("~/Desktop/kratos/src/athena_description/img/ground_noise.png"))
-        )
+
+
+    terrain = scene.add_entity(
+        morph=gs.morphs.Mesh(
+            file="/home/anuragiyer/Desktop/kratos/src/athena_description/urdf/payloads/mars_terrain_lowres.stl",
+            pos=(10.0, 4.0, 0.0),
+            euler=(0.0, 0.0, 0.0),
+            scale=1.0,
+            fixed=True,
+            convexify=False,
+            # decimate=False,
+        ),
+        # vis_mode="collision",
+        material=gs.materials.Rigid(
+            friction=0.8,
+        ),
     )
 
+    # points = [
+    #     (2.98, -6.41), (-5.12, 3.07), (7.45, 1.22), (-1.88, -3.44),
+    #     (4.60, 5.33), (-6.99, -0.85), (0.77, 7.88), (3.34, -2.11),
+    #     (-4.02, -6.15), (6.80, -3.29), (-2.55, 4.71), (1.09, -7.62),
+    #     (5.94, 3.98), (-7.31, 2.04), (-0.42, 3.05), (2.66, 6.55),
+    #     (-3.79, -4.88), (7.02, -4.55), (-1.15, -7.99), (4.44, -6.02),
+    # ]
 
-    points = [
-        (2.98, -6.41), (-5.12, 3.07), (7.45, 1.22), (-1.88, -3.44),
-        (4.60, 5.33), (-6.99, -0.85), (0.77, 7.88), (3.34, -2.11),
-        (-4.02, -6.15), (6.80, -3.29), (-2.55, 4.71), (1.09, -7.62),
-        (5.94, 3.98), (-7.31, 2.04), (-0.42, 3.05), (2.66, 6.55),
-        (-3.79, -4.88), (7.02, -4.55), (-1.15, -7.99), (4.44, -6.02),
-    ]
-
-    for x, y in points: 
-        scene.add_entity(
-            gs.morphs.Box(pos=(x, y, 0.5), size=(0.3, 0.3, 1.0), fixed=True),
-            surface=gs.surfaces.Rough(color=(random.random(), random.random(), random.random(), 1.0)),
-        )
+    # for x, y in points: 
+    #     scene.add_entity(
+    #         gs.morphs.Box(pos=(x, y, 0.5), size=(0.3, 0.3, 1.0), fixed=True),
+    #         surface=gs.surfaces.Rough(color=(random.random(), random.random(), random.random(), 1.0)),
+    #     )
     rover = scene.add_entity(
         gs.morphs.URDF(
             file=URDF_PATH,
@@ -344,13 +347,6 @@ def main() :
     left_cam = scene.add_camera(res=(1280, 720), fov=110)
             
     right_cam = scene.add_camera(res=(1280, 720), fov=110)
-
-    FLIP_180_Z = np.array([
-        [-1,  0, 0, 0],
-        [ 0, -1, 0, 0],
-        [ 0,  0, 1, 0],
-        [ 0,  0, 0, 1],
-    ], dtype=np.float64)
     
 
     left_cam.attach(rover.get_link("zed2i_left_camera_frame_optical"), offset_T=np.eye(4))
@@ -405,17 +401,18 @@ def main() :
             imu_data = imu.read() if hasattr(imu, "read") else imu.get_data()
             node.publish_imu(imu_data, "zed2i_camera_center")
 
+            if step_count % 100 ==0:
+                steer_pose = rover.get_dofs_position(dofs_idx_local=wheel_dofs)
+                wheel_vel = rover.get_dofs_velocity(dofs_idx_local=wheel_dofs)
+                print("comman:", wheel_ang_vels)
+                print("actual:", wheel_vel)
+
 
             if step_count % CAMERA_DECIMATION == 0:
                 left_cam.move_to_attach()
                 right_cam.move_to_attach()
 
                 stamp = node.stamp()
-
-                print(
-                    f"STEREO FRAME "
-                    f"stamp={stamp.sec}.{stamp.nanosec:09d}"
-                )
  
                 rgb_l, depth_l, _, _ = left_cam.render(rgb=True, depth=True)
                 rgb_r, depth_r, _, _ = right_cam.render(rgb=True, depth=True)
