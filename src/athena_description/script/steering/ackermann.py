@@ -5,8 +5,13 @@ from typing import List, Tuple
 
 from .base import SteeringMode
 from .wheel_config import (
-    WHEEL_XY, WHEEL_ORDER, WHEEL_RADIUS, MAX_STEER_ANGLE, REAR_AXLE_X
+    WHEEL_XY,
+    WHEEL_ORDER,
+    WHEEL_RADIUS,
+    MAX_STEER_ANGLE,
+    FRONT_AXLE_X,
 )
+
 
 class AckermannSteering(SteeringMode):
     name = "ackermann"
@@ -17,20 +22,20 @@ class AckermannSteering(SteeringMode):
         for wheel_name in WHEEL_ORDER:
             x, y = WHEEL_XY[wheel_name]
 
-            if wheel_name.startswith("rear"):
-                angle = 0.0
-                speed = v - wz*y
-            else:
-                xr = x - REAR_AXLE_X
+            if wheel_name.startswith("front"):
                 vx = v - wz * y
-                vy = wz * xr
+                vy = wz * FRONT_AXLE_X
                 angle = math.atan2(vy, vx)
                 speed = math.hypot(vx, vy)
                 if abs(angle) > math.pi / 2:
                     angle = math.atan2(-vy, -vx)
                     speed = -speed
-                angle = max(-MAX_STEER_ANGLE, min(MAX_STEER_ANGLE, angle))
+            else:
+                angle = 0.0
+                speed = v - wz * y
 
+            angle = max(-MAX_STEER_ANGLE, min(MAX_STEER_ANGLE, angle))
             steer_angles.append(angle)
-            wheel_angle_vels.append(speed/WHEEL_RADIUS)
+            wheel_angle_vels.append(speed / WHEEL_RADIUS)
+
         return steer_angles, wheel_angle_vels

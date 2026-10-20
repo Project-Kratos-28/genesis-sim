@@ -54,4 +54,9 @@ def generate_launch_description():
                 'steering_mode': LaunchConfiguration('steering_mode')
             }]
         ),
+        Node(
+            package='athena_description',
+            executable='check.py',
+            output='screen',
+        )
     ])

@@ -7,8 +7,11 @@ frame*
 ZED*
 kratos
 
-src/athena_description/launch/__pycache__/
+src/athena_description/launch/__pycache__/*
 src/athena_description/ground_generator.py
 src/athena_description/.claude/
-src/athena_description/script/__pycache__/
-src/athena_description/script/steering/__pycache__/ackermann.cpython-312.pyc
+src/athena_description/script/__pycache__/*
+src/athena_description/script/steering/__pycache__/*
+src/.vscode
+.vscode/
+.agents/
