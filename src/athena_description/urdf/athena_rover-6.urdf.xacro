@@ -452,4 +452,43 @@
     <dynamics damping="0.01" friction="0.05"/>
   </joint>
 
+  <gazebo>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_front_left_spin</joint_name>
+      <topic>/model/athena_rover/joint/wheel_front_left_spin/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_front_right_spin</joint_name>
+      <topic>/model/athena_rover/joint/wheel_front_right_spin/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_rear_left_spin</joint_name>
+      <topic>/model/athena_rover/joint/wheel_rear_left_spin/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>wheel_rear_right_spin</joint_name>
+      <topic>/model/athena_rover/joint/wheel_rear_right_spin/cmd_vel</topic>
+    </plugin>
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>steer_front_left</joint_name>
+      <topic>/model/athena_rover/joint/steer_front_left/cmd_pos</topic>
+      <p_gain>1</p_gain>
+    </plugin>
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>steer_front_right</joint_name>
+      <topic>/model/athena_rover/joint/steer_front_right/cmd_pos</topic>
+      <p_gain>1</p_gain>
+    </plugin>
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>steer_rear_left</joint_name>
+      <topic>/model/athena_rover/joint/steer_rear_left/cmd_pos</topic>
+      <p_gain>1</p_gain>
+    </plugin>
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>steer_rear_right</joint_name>
+      <topic>/model/athena_rover/joint/steer_rear_right/cmd_pos</topic>
+      <p_gain>1</p_gain>
+    </plugin>
+  </gazebo>
+
 </robot>
