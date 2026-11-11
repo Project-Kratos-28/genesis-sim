@@ -27,8 +27,20 @@ def generate_launch_description():
         ),
     )
 
+    show_viewer_arg = DeclareLaunchArgument(
+        'show_viewer',
+        default_value='true',
+        description=(
+            "Open the Genesis viewer window. Set to 'false' for sensor/VIO work: "
+            "the viewer and the simulated ZED cameras share the GPU, and camera "
+            "reads are ~25x slower while the window is open."
+        ),
+    )
+
 
     return LaunchDescription([
+        steering_mode_arg,
+        show_viewer_arg,
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
@@ -43,20 +55,17 @@ def generate_launch_description():
         Node(
             package='joint_state_publisher_gui',
             executable='joint_state_publisher_gui',
-            output='screen'
+            output='screen',
+            parameters=[{'use_sim_time': True}]
         ),
         Node(
             package='athena_description', 
             executable='genesis_launcher.py', 
-            name='genesis_zed_bridge',
+            name='genesis_bridge',
             output='screen',
             parameters=[{
-                'steering_mode': LaunchConfiguration('steering_mode')
+                'steering_mode': LaunchConfiguration('steering_mode'),
+                'show_viewer': LaunchConfiguration('show_viewer'),
             }]
         ),
-        Node(
-            package='athena_description',
-            executable='check.py',
-            output='screen',
-        )
     ])

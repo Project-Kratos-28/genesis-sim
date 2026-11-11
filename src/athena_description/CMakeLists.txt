@@ -10,7 +10,6 @@ install(
     meshes
     urdf
     launch
-    config
     img
   DESTINATION share/${PROJECT_NAME}
 )
@@ -18,7 +17,6 @@ install(
 # Executable script
 install(PROGRAMS
   script/genesis_launcher.py
-  script/check.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -1,3 +1,4 @@
+import math
 import os
 
 
@@ -21,13 +22,30 @@ SHOW_VIEWER = True
 WHEEL_BOTTOM_TO_FOOTPRINT = -0.2145
 SPAWN_CLEARANCE = 1.5
 SPAWN_Z = -WHEEL_BOTTOM_TO_FOOTPRINT + SPAWN_CLEARANCE
+
+# Steps simulated with zero wheel command before the ROS clock starts. The rover
+# is spawned SPAWN_CLEARANCE above the terrain, and the free fall that follows
+# reads as ~0 g on the IMU: Madgwick cannot determine gravity, so it latches a
+# wrong attitude and the VIO starts with a bogus initial pose. Settling first
+# means every published sensor sample is post-landing.
+SETTLE_STEPS = 300
  
 LINKS_TO_KEEP = [
     "base_footprint",
-    "zed2i_camera_center",
-    "zed2i_left_camera_frame_optical",
-    "zed2i_right_camera_frame_optical",
 ]
+
+## Visual landmarks
+#
+# The terrain STL carries no UVs, so it cannot be textured, and a uniform white
+# mesh gives a stereo/VIO stack nothing to track (features come only from facet
+# shading, and the rover's own shadow -- which is static in the image -- pulls
+# the estimate towards zero). Scatter static, non-colliding boulders so the
+# simulated cameras see the kind of visual structure the real terrain has.
+VISUAL_LANDMARKS = True
+LANDMARK_COUNT = 160
+LANDMARK_SEED = 11
+LANDMARK_RADIUS = (0.10, 0.40)  # metres, boulder radius range
+LANDMARK_EXCLUSION = 2.5  # metres around the spawn kept clear
 
 ## Joint Controller gains
 STEER_KP = 800.0
@@ -36,37 +54,77 @@ WHEEL_KP = 0.0
 WHEEL_KV = 30.0
 
 
-## Camera
-WIDTH, HEIGHT, FOV_DEG = 1280, 720, 110.0
-BASELINE = 0.12
-CAMERA_DECIMATION = 1
-POINTCLOUD_STRIDE = 4
-DEPTH_MIN, DEPTH_MAX = 0.05, 30.0
+## Simulated ZED2i (stereo camera pair + IMU)
+#
+# The rig mirrors the URDF (`zed_left/right_camera_frame`, `zed_imu_link`).
+# Both render cameras sit exactly on those frames' origins, which lie *inside*
+# the camera housing mesh (the ZED2i's optical centre is 25 mm behind the lens
+# face). The housing is therefore clipped rather than the camera being pushed
+# forward: ZED_NEAR (3 cm) is just beyond the 2.5 cm of body/lens geometry in
+# front of the optical centre, so images stay clean while the published frames,
+# baseline and camera-IMU lever arm all match the URDF exactly.
+ZED_ATTACH_LINK = "base_footprint"  # only link kept by merge_fixed_links
+
+ZED_WIDTH = 1280  # ZED2i HD720
+ZED_HEIGHT = 720
+# Vertical FOV chosen so the render intrinsics match the ZED2i HD720 nominal
+# calibration: fy = (H/2) / tan(vfov/2) = 527.9 px (fx == fy, square pixels).
+ZED_VERTICAL_FOV = 68.59  # degrees
+
+ZED_FX = (ZED_HEIGHT / 2.0) / math.tan(math.radians(ZED_VERTICAL_FOV) / 2.0)
+ZED_FY = ZED_FX
+ZED_CX = ZED_WIDTH / 2.0
+ZED_CY = ZED_HEIGHT / 2.0
+ZED_BASELINE = 0.12  # metres, matches the URDF (y = +/- 0.06)
+ZED_NEAR = 0.03  # metres; clips the camera's own housing
+
+# Render camera pose in `ZED_ATTACH_LINK`; base_footprint -> base_link is z +0.155.
+# These are the URDF optical-frame origins (base_link x -0.01, z +0.110).
+ZED_CAMERA_X = 0.245
+ZED_CAMERA_Y = 0.06  # left camera; the right one is mirrored in Y
+ZED_CAMERA_Z = 0.265
+ZED_IMU_POS = (0.255, 0.0, 0.265)
+
+# Sensor output rates, in simulated (not wall-clock) time.
+ZED_IMAGE_RATE = 10.0  # Hz
+ZED_IMU_RATE = 100.0  # Hz, one sample per physics step
+
+# IMU noise model, order-of-magnitude BMI088 figures (the ZED2i's IMU).
+ZED_IMU_ACC_NOISE = 0.0016  # m/s^2, per sample
+ZED_IMU_GYRO_NOISE = 0.00011  # rad/s, per sample
+ZED_IMU_ACC_BIAS = (0.02, -0.015, 0.01)  # m/s^2
+ZED_IMU_GYRO_BIAS = (0.001, -0.0008, 0.0006)  # rad/s
+
 
 ## Frames
 MAP_FRAME = "map"
 BASE_FOOTPRINT_FRAME = "base_footprint"
 ODOM_CHILD_FRAME = "base_link"
-IMU_FRAME = "zed2i_camera_center"
-LEFT_CAM_FRAME = "zed2i_left_camera_frame_optical"
-RIGHT_CAM_FRAME = "zed2i_right_camera_frame_optical"
+ZED_LEFT_FRAME = "zed_left_camera_optical_frame"
+ZED_RIGHT_FRAME = "zed_right_camera_optical_frame"
+ZED_IMU_FRAME = "zed_imu_link"
 
 
 ## Topics 
-TOPIC_LEFT_IMAGE = "/left/image_rect"
-TOPIC_RIGHT_IMAGE = "/right/image_rect"
-TOPIC_LEFT_INFO = "/left/camera_info"
-TOPIC_RIGHT_INFO = "/right/camera_info"
-TOPIC_IMU_RAW = "/imu/data_raw"
-TOPIC_IMU = "/imu/data"
 TOPIC_CLOCK = "/clock"
 TOPIC_ODOM = "/odom"
-TOPIC_LEFT_PC = "/point_cloud/left"
-TOPIC_RIGHT_PC = "/point_cloud/right"
 TOPIC_CMD_VEL = "/cmd_vel"
 TOPIC_STEERING_MODE = "/steering_mode"
+
+# ZED ROS 2 wrapper-compatible names, so a VIO stack tuned here runs unchanged
+# against the real camera.
+TOPIC_ZED_LEFT_IMAGE = "/zed/zed_node/left/image_rect_color"
+TOPIC_ZED_RIGHT_IMAGE = "/zed/zed_node/right/image_rect_color"
+TOPIC_ZED_LEFT_INFO = "/zed/zed_node/left/camera_info"
+TOPIC_ZED_RIGHT_INFO = "/zed/zed_node/right/camera_info"
+TOPIC_ZED_IMU_RAW = "/zed/zed_node/imu/data_raw"
 
 
 ## Misc 
 DEFAULT_STEERING_MODE = "ackermann"
 DEBUG_PRINT_EVERY = 100
+
+# Path where the bridge persists its last sim_time so a restart can continue
+# the clock monotonically without waiting for /clock subscription callbacks
+# (which are unreliable across process restarts due to VOLATILE QoS).
+CLOCK_PERSIST_PATH = os.path.expanduser("~/.ros/genesis_bridge_clock.txt")

@@ -7,64 +7,6 @@
 <!-- All meshes exported in mm; scale="0.001 0.001 0.001" converts to metres.   -->
 <!-- Package path: package://athena_description/meshes/                          -->
 <robot name="athena_rover">
-  <!-- Camera mounting point (the threaded screw hole in the bottom) -->
-  <link name="zed2i_camera_link"/>
-  <!-- Camera Center -->
-  <link name="zed2i_camera_center">
-    <visual>
-      <origin rpy="3.1415 0 0" xyz="-0.01 0 0.0"/>
-      <geometry>
-        <mesh filename="/opt/ros/jazzy/share/zed_description/meshes/zed2i.stl"/>
-      </geometry>
-      <material name="zed_mat">
-        <color rgba="0.25 0.25 0.25 1.0"/>
-      </material>
-    </visual>
-    <collision>
-      <origin rpy="0 0 0" xyz="-0.01 0 0.0"/>
-      <geometry>
-        <mesh filename="/opt/ros/jazzy/share/zed_description/meshes/zed2i.stl"/>
-      </geometry>
-    </collision>
-    <inertial>
-      <origin rpy="0 0 0" xyz="-0.01 0 0.0"/>
-      <mass value="0"/>
-      <inertia ixx="0.00044" ixy="0.0" ixz="0.0" iyy="0.0000275" iyz="0.0" izz="0.00044"/>
-    </inertial>
-  </link>
-  <joint name="zed2i_camera_center_joint" type="fixed">
-    <parent link="zed2i_camera_link"/>
-    <child link="zed2i_camera_center"/>
-    <origin rpy="0 0.0 0" xyz="0 0 0.015"/>
-  </joint>
-  <!-- Left Camera -->
-  <link name="zed2i_left_camera_frame">
-  </link>
-  <joint name="zed2i_left_camera_joint" type="fixed">
-    <parent link="zed2i_camera_center"/>
-    <child link="zed2i_left_camera_frame"/>
-    <origin rpy="0 3.1415 0" xyz="-0.01 0.06 0"/>
-  </joint>
-  <link name="zed2i_left_camera_frame_optical"/>
-  <joint name="zed2i_left_camera_joint_optical" type="fixed">
-    <origin rpy="-1.5707963267948966 0.0 -1.5707963267948966" xyz="0 0 0"/>
-    <parent link="zed2i_left_camera_frame"/>
-    <child link="zed2i_left_camera_frame_optical"/>
-  </joint>
-  <!-- Right Camera -->
-  <link name="zed2i_right_camera_frame">
-  </link>
-  <joint name="zed2i_right_camera_joint" type="fixed">
-    <parent link="zed2i_camera_center"/>
-    <child link="zed2i_right_camera_frame"/>
-    <origin rpy="0 0 0" xyz="-0.01 -0.06 0"/>
-  </joint>
-  <link name="zed2i_right_camera_frame_optical"/>
-  <joint name="zed2i_right_camera_joint_optical" type="fixed">
-    <origin rpy="-1.5707963267948966 0.0 -1.5707963267948966" xyz="0 0 0"/>
-    <parent link="zed2i_right_camera_frame"/>
-    <child link="zed2i_right_camera_frame_optical"/>
-  </joint>
   <material name="aluminium">
     <color rgba="0.75 0.75 0.80 1.0"/>
   </material>
@@ -76,6 +18,12 @@
   </material>
   <material name="tpu_orange">
     <color rgba="0.9 0.45 0.1 1.0"/>
+  </material>
+  <material name="zed_dark_grey">
+    <color rgba="0.25 0.25 0.25 1.0"/>
+  </material>
+  <material name="zed_lens">
+    <color rgba="0.02 0.02 0.03 1.0"/>
   </material>
   <link name="base_footprint"/>
   <joint name="base_footprint_to_base" type="fixed">
@@ -99,15 +47,18 @@
     </collision>
     <inertial>
       <mass value="8.0"/>
-      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <!-- The chassis hangs on the two free bogey pivots (no springs), so it acts
+           as a pendulum about the pivot line at z = 0. Keep its CoM BELOW that
+           line (battery/electronics low in the frame) so the body is stable.
+           x is trimmed 5.07 mm aft to cancel the ZED2i's forward moment
+           (0.159 kg at x = +0.255 m): x_c = (8.0*-0.00507 + 0.159*0.255)/8.159 = 0.
+           Do NOT reset this to (0, 0, 0): the body then sits in neutral
+           equilibrium and any forward payload makes it pitch until the bogey
+           hits its +/-30 deg stop. -->
+      <origin rpy="0 0 0" xyz="-0.00507 0.0 -0.050"/>
       <inertia ixx="0.400" ixy="0.0" ixz="0.0" iyy="0.180" iyz="0.0" izz="0.500"/>
     </inertial>
   </link>
-  <joint name="zed2i_mount_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="zed2i_camera_link"/>
-    <origin rpy="0 3.1415 0" xyz="0.25 0 0.125"/>
-  </joint>
   <link name="bogey_left">
     <visual>
       <origin rpy="0 3.1416 3.1416" xyz="-0.2600 -1.0250 0.0645"/>
@@ -485,4 +436,127 @@
     <axis xyz="0 1 0"/>
     <dynamics damping="0.01" friction="0.05"/>
   </joint>
+
+  <!-- ================================================================ -->
+  <!-- ZED2i stereo camera (simulation model — no ZED SDK / driver)      -->
+  <!--                                                                   -->
+  <!-- Frame names and offsets mirror zed_description's `zed_camera`    -->
+  <!-- macro for model=zed2i, so anything that consumes the real        -->
+  <!-- zed-ros2-wrapper sees the same TF tree here:                     -->
+  <!--   zed_camera_link                    : threaded screw-hole mount -->
+  <!--   zed_camera_center                  : camera body centre        -->
+  <!--   zed_left/right_camera_frame        : stereo lens frames        -->
+  <!--   zed_left/right_camera_frame_optical: ROS optical frames        -->
+  <!--     (x-right, y-down, z-forward — standard camera convention)    -->
+  <!--   zed_imu_link                       : IMU sensing frame         -->
+  <!--                                                                   -->
+  <!-- Mount offset from base_link (front wall of the chassis):         -->
+  <!--   x = +0.255 m  (chassis front wall spans x = 0.24 .. 0.27)      -->
+  <!--   y =  0.000 m  (centred)                                        -->
+  <!--   z = +0.095 m  (chassis top edge)                               -->
+  <!-- ZED2i specs: baseline = 0.120 m, body = 0.175 x 0.030 x 0.033 m  -->
+  <!-- ================================================================ -->
+
+  <!-- Camera mount point (screw hole, bottom-centre of camera body) -->
+  <link name="zed_camera_link"/>
+  <joint name="zed_camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="zed_camera_link"/>
+    <origin rpy="0 0 0" xyz="0.255 0.0 0.095"/>
+  </joint>
+
+  <!-- Camera body — carries the visual mesh and a simplified collision box -->
+  <link name="zed_camera_center">
+    <visual>
+      <!-- screw_offset_x = -0.01 m for the zed2i (as in the Stereolabs macro) -->
+      <origin rpy="0 0 0" xyz="-0.01 0.0 0.0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/zed2i.stl"/>
+      </geometry>
+      <material name="zed_dark_grey"/>
+    </visual>
+    <!-- Lens faces. The mesh models its lenses flush with the front plate
+         (ray-cast: the lens element stack runs x = -0.0122 .. +0.0251 in mesh
+         coordinates, so the front element is coplanar with the +X face), and an
+         STL carries no colour — with flat shading the front of the camera then
+         renders as a blank plate and is easy to mistake for the back. These two
+         discs mark the real lens apertures (r = 9.6 mm at y = +-0.06, matching
+         the mesh's own lens rings) so the camera visibly faces +X. -->
+    <visual>
+      <origin rpy="0 1.5707963 0" xyz="0.0154 0.06 0.0"/>
+      <geometry>
+        <cylinder radius="0.0096" length="0.0006"/>
+      </geometry>
+      <material name="zed_lens"/>
+    </visual>
+    <visual>
+      <origin rpy="0 1.5707963 0" xyz="0.0154 -0.06 0.0"/>
+      <geometry>
+        <cylinder radius="0.0096" length="0.0006"/>
+      </geometry>
+      <material name="zed_lens"/>
+    </visual>
+    <collision>
+      <!-- Axis-aligned box around the mesh (0.0431 x 0.1753 x 0.0303 m) -->
+      <origin rpy="0 0 0" xyz="-0.0064 0.0 0.0"/>
+      <geometry>
+        <box size="0.0431 0.1753 0.0303"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <!-- ZED2i mass = 159 g, inertia modelled as a uniform box -->
+      <mass value="0.159"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <inertia ixx="4.19e-4" ixy="0.0" ixz="0.0"
+               iyy="3.67e-5" iyz="0.0"
+               izz="4.32e-4"/>
+    </inertial>
+  </link>
+  <joint name="zed_camera_center_joint" type="fixed">
+    <parent link="zed_camera_link"/>
+    <child link="zed_camera_center"/>
+    <!-- raise by half the camera height (0.030/2 = 0.015 m) -->
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.015"/>
+  </joint>
+
+  <!-- Left camera frame (optical_offset_x=-0.01, baseline/2=0.06) -->
+  <link name="zed_left_camera_frame"/>
+  <joint name="zed_left_camera_joint" type="fixed">
+    <parent link="zed_camera_center"/>
+    <child link="zed_left_camera_frame"/>
+    <origin rpy="0 0 0" xyz="-0.01 0.06 0.0"/>
+  </joint>
+
+  <!-- Left optical frame: ROS camera convention (x-right, y-down, z-fwd) -->
+  <link name="zed_left_camera_optical_frame"/>
+  <joint name="zed_left_camera_optical_joint" type="fixed">
+    <parent link="zed_left_camera_frame"/>
+    <child link="zed_left_camera_optical_frame"/>
+    <origin rpy="-1.5707963 0.0 -1.5707963" xyz="0.0 0.0 0.0"/>
+  </joint>
+
+  <!-- Right camera frame (optical_offset_x=-0.01, -baseline/2=-0.06) -->
+  <link name="zed_right_camera_frame"/>
+  <joint name="zed_right_camera_joint" type="fixed">
+    <parent link="zed_camera_center"/>
+    <child link="zed_right_camera_frame"/>
+    <origin rpy="0 0 0" xyz="-0.01 -0.06 0.0"/>
+  </joint>
+
+  <!-- Right optical frame -->
+  <link name="zed_right_camera_optical_frame"/>
+  <joint name="zed_right_camera_optical_joint" type="fixed">
+    <parent link="zed_right_camera_frame"/>
+    <child link="zed_right_camera_optical_frame"/>
+    <origin rpy="-1.5707963 0.0 -1.5707963" xyz="0.0 0.0 0.0"/>
+  </joint>
+
+  <!-- IMU link — coincident with the camera centre (ZED2i IMU is body-integrated) -->
+  <link name="zed_imu_link"/>
+  <joint name="zed_imu_joint" type="fixed">
+    <parent link="zed_camera_center"/>
+    <child link="zed_imu_link"/>
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+  </joint>
+
 </robot>
