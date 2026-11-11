@@ -1,12 +1,17 @@
 build/
 install/
 log/
+.venv/
+.vscode/
+.venv/
+.vscode/
 
 .git/
 frame*
 ZED*
 kratos
 
+<<<<<<< HEAD
 src/athena_description/ground_generator.py
 src/athena_description/.claude/
 src/.vscode
@@ -15,3 +20,7 @@ src/.vscode
 __pycache__/
 *.pyc
 AGENTS.md
+=======
+src/athena_description/launch/__pycache__/
+imgui.ini
+>>>>>>> fefc8b9515788a8654d1f9ca93323568eb5980bb

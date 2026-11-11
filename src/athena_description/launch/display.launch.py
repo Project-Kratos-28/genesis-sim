@@ -4,8 +4,10 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 import os
+from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
+<<<<<<< HEAD
     urdf_path = os.path.join(
         get_package_share_directory('athena_description'),
         'urdf',
@@ -38,6 +40,14 @@ def generate_launch_description():
     )
 
 
+=======
+    package_share = get_package_share_directory("athena_description")
+    urdf_file = os.path.join(package_share, "urdf", "athena_rover-6.urdf")
+
+    with open(urdf_file, 'r') as f:
+        robot_description = f.read()
+
+>>>>>>> fefc8b9515788a8654d1f9ca93323568eb5980bb
     return LaunchDescription([
         steering_mode_arg,
         show_viewer_arg,
