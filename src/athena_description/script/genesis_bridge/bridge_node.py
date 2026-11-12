@@ -1,3 +1,4 @@
+import fcntl
 import os
 
 from builtin_interfaces.msg import Time
@@ -10,8 +11,17 @@ from steering import make_steering_mode
 from . import config
 
 
+class BridgeAlreadyRunning(RuntimeError):
+    """Raised when another genesis_bridge already owns the /clock lock."""
+
+
 class GenesisBridge(Node):
     def __init__(self):
+        # Acquire before the ROS node exists: if another bridge is alive there is
+        # no point initialising anything else. The lock is released by the OS
+        # when this process dies, so SIGKILL/stale launches cannot wedge it.
+        self._lock_fd = self._acquire_instance_lock()
+
         super().__init__("genesis_bridge")
 
         self.sim_time = 0.0
@@ -49,6 +59,59 @@ class GenesisBridge(Node):
     # --- persistence helpers ---------------------------------------------------
 
     @staticmethod
+    def _acquire_instance_lock() -> int:
+        """Take an exclusive lock so only one bridge can publish /clock.
+
+        Two simultaneous bridges would each derive `sim_time` from the shared
+        persisted offset at their own start time, so the values they publish
+        alternate between two bases tens of seconds apart. Downstream nodes then
+        see `/clock` jump backwards, clear their TF buffers, and VIO/RViz break
+        (``Detected jump back in time`` / ``TF_OLD_DATA``). The lock turns that
+        silent corruption into a clear startup failure.
+
+        The kernel releases a `flock` when the owning process exits, so a
+        crashed or SIGKILLed bridge never leaves a stale lock behind.
+        """
+        path = config.CLOCK_LOCK_PATH
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.lseek(fd, 0, os.SEEK_SET)
+            try:
+                owner = os.read(fd, 64).decode(errors="replace").strip()
+            except OSError:
+                owner = ""
+            os.close(fd)
+            who = f" (pid {owner})" if owner else ""
+            raise BridgeAlreadyRunning(
+                "another genesis_bridge is already running"
+                f"{who}: only one simulation may publish /clock.\n"
+                "Stop the existing one first:\n"
+                "  ps -eo pid,cmd | grep -E 'genesis_launcher|ros2 launch athena_description'\n"
+                "  kill <pid>            # or restart the launch cleanly\n"
+                "The exclusive lock lives at " + path + "."
+            ) from None
+
+        os.ftruncate(fd, 0)
+        os.write(fd, f"{os.getpid()}\n".encode())
+        os.fsync(fd)
+        return fd
+
+    def release_instance_lock(self) -> None:
+        """Drop the single-instance lock (also released automatically on exit)."""
+        fd, self._lock_fd = getattr(self, "_lock_fd", None), None
+        if fd is None:
+            return
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        finally:
+            os.close(fd)
+
+    @staticmethod
     def _load_persisted_clock() -> float:
         """Return the last persisted sim_time, or 0.0 if no file exists."""
         path = config.CLOCK_PERSIST_PATH
@@ -59,12 +122,16 @@ class GenesisBridge(Node):
             return 0.0
 
     def _persist_clock(self) -> None:
-        """Overwrite the persist file with the current sim_time."""
+        """Atomically overwrite the persist file with the current sim_time."""
         path = config.CLOCK_PERSIST_PATH
+        tmp = f"{path}.{os.getpid()}.tmp"
         try:
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w") as fh:
+            with open(tmp, "w") as fh:
                 fh.write(f"{self.sim_time:.9f}\n")
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, path)
         except OSError as exc:
             self.get_logger().warn(f"Could not persist clock: {exc}")
 

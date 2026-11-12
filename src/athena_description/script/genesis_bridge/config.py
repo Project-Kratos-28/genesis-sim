@@ -96,6 +96,32 @@ ZED_IMU_ACC_BIAS = (0.02, -0.015, 0.01)  # m/s^2
 ZED_IMU_GYRO_BIAS = (0.001, -0.0008, 0.0006)  # rad/s
 
 
+## Simulated Livox MID-360 LiDAR
+#
+# 360 deg x (-7 .. +52 deg) coverage, matching the MID-360 datasheet. The
+# simulated scan is a uniform spherical grid (the real unit uses a
+# non-repetitive rosette pattern), so point density is illustrative rather
+# than bit-identical to the hardware.
+#
+# Attached to the link that survives merge_fixed_links, at the URDF joint
+# base_link -> livox_mid360_link (0, 0, 0.175). base_footprint -> base_link is
+# z +0.155, so the sensor origin is 0.330 m above base_footprint and its axes
+# are identical to base_footprint (every joint in the chain has rpy 0).
+LIVOX_ATTACH_LINK = "base_footprint"
+LIVOX_POS = (0.0, 0.0, 0.330)
+
+LIVOX_VERTICAL_FOV = (-7.0, 52.0)  # degrees, (min, max) elevation
+LIVOX_BEAMS_H = 2000  # azimuth samples per scan (uniform, 360 deg)
+LIVOX_BEAMS_V = 32  # elevation rings per scan
+
+LIVOX_MIN_RANGE = 0.1  # metres, MID-360 blind zone
+LIVOX_MAX_RANGE = 100.0  # metres
+LIVOX_RANGE_NOISE = 0.01  # metres, 1-sigma range noise per point
+
+LIVOX_SCAN_RATE = 10.0  # Hz, in simulated time
+LIVOX_FRAME = "livox_mid360_link"
+
+
 ## Frames
 MAP_FRAME = "map"
 BASE_FOOTPRINT_FRAME = "base_footprint"
@@ -119,6 +145,11 @@ TOPIC_ZED_LEFT_INFO = "/zed/zed_node/left/camera_info"
 TOPIC_ZED_RIGHT_INFO = "/zed/zed_node/right/camera_info"
 TOPIC_ZED_IMU_RAW = "/zed/zed_node/imu/data_raw"
 
+# Livox ROS 2 driver-compatible name. livox_ros_driver2 publishes
+# sensor_msgs/PointCloud2 here when configured with xfer_format:=1 (default is
+# the custom livox_ros_driver2/msg/CustomMsg on the same topic name).
+TOPIC_LIVOX_POINTS = "/livox/lidar"
+
 
 ## Misc 
 DEFAULT_STEERING_MODE = "ackermann"
@@ -128,3 +159,8 @@ DEBUG_PRINT_EVERY = 100
 # the clock monotonically without waiting for /clock subscription callbacks
 # (which are unreliable across process restarts due to VOLATILE QoS).
 CLOCK_PERSIST_PATH = os.path.expanduser("~/.ros/genesis_bridge_clock.txt")
+
+# Exclusive lock held for the lifetime of a bridge process. Two bridges would
+# each publish /clock from a different persisted offset, making time jump
+# backwards and clearing every downstream TF buffer -- refuse to start.
+CLOCK_LOCK_PATH = os.path.expanduser("~/.ros/genesis_bridge.lock")

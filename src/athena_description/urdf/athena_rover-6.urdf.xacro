@@ -4,8 +4,6 @@
 <!-- Package path: package://athena_description/meshes/                          -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="athena_rover">
 
-  ⁠<xacro:include filename="$(find athena_description)/urdf/livox_mid360.xacro"/>
-
   <material name="aluminium">
     <color rgba="0.75 0.75 0.80 1.0"/>
   </material>
@@ -65,43 +63,6 @@
                izz="0.500"/>
     </inertial>
   </link>
-
-  <joint name="zed2i_mount_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="zed2i_camera_link"/>
-    <origin xyz="0.2 0 0.3" rpy="0 0 0"/>
-  </joint>
-
-  <link name="livox_mid360_link">
-    <visual>
-      <origin xyz="0.0 0.0 0.0" rpy="1.5708 0 0"/>
-      <geometry>
-        <mesh filename="package://athena_description/meshes/visual/livox-mid-360-asm.stl"
-              scale="0.001 0.001 0.001"/>
-      </geometry>
-      <material name="aluminium"/>
-    </visual>
-    <collision>
-      <origin xyz="0.0 0.0 0.0" rpy="1.5708 0 0"/>
-      <geometry>
-        <mesh filename="package://athena_description/meshes/collision/livox-mid-360-asm.stl"
-              scale="0.001 0.001 0.001"/>
-      </geometry>
-    </collision>
-    <inertial>
-      <mass value="1.2"/>
-      <origin xyz="0.00 0.00 0.00" rpy="0 0 0"/>
-      <inertia ixx="1e-4" ixy="0.0" ixz="0.0"
-           iyy="1e-4" iyz="0.0"
-               izz="1e-4"/>
-    </inertial>
-  </link>
-
-  <joint name="livox_mid360_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="livox_mid360_link"/>
-    <origin xyz="0 0 0.175" rpy="3.1416 0 0"/>
-  </joint>
 
   <link name="bogey_left">
     <visual>
@@ -613,6 +574,34 @@
     <parent link="zed_camera_center"/>
     <child link="zed_imu_link"/>
     <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+  </joint>
+
+  <!-- ================================================================ -->
+  <!-- Livox MID-360 LiDAR (visual + inertial only)                      -->
+  <!--                                                                  -->
+  <!-- Deliberately has NO <collision>: it must not add contact         -->
+  <!-- geometry or occlude Genesis LiDAR rays. Visual + TF only.        -->
+  <!-- Mounted centred on the chassis top rail at z = +0.175 m.         -->
+  <!-- Kept in sync with the plain athena_rover-6.urdf.                 -->
+  <!-- ================================================================ -->
+  <link name="livox_mid360_link">
+    <visual>
+      <origin rpy="1.5708 0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <mesh filename="package://athena_description/meshes/visual/livox-mid-360-asm.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="aluminium"/>
+    </visual>
+    <inertial>
+      <mass value="1.2"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <inertia ixx="1e-4" ixy="0.0" ixz="0.0" iyy="1e-4" iyz="0.0" izz="1e-4"/>
+    </inertial>
+  </link>
+  <joint name="livox_mid360_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="livox_mid360_link"/>
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.175"/>
   </joint>
 
   <gazebo>

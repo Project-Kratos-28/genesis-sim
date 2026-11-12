@@ -23,8 +23,14 @@ Welcome to the **Kratos** repository. This document serves as the authoritative 
 > names, frames and HD720 intrinsics of the real ZED ROS 2 wrapper** (`/zed/zed_node/...`).
 > `launch/rtabmap_vio.launch.py` runs `imu_filter_madgwick` + RTAB-Map `stereo_odometry` on
 > those topics, so a VIO configuration validated here transfers unchanged to a physical
-> ZED2i + RTAB-Map. Nothing is published by the bridge except `/clock`, `map → base_footprint`
-> and the ZED sensor stream; the bridge **never** publishes `/odom` or a `odom` TF.
+> ZED2i + RTAB-Map.
+>
+> A simulated **Livox MID-360** (`genesis_bridge/livox_lidar.py`) ray-casts the same scene
+> from the URDF `livox_mid360_link` frame and publishes `sensor_msgs/PointCloud2` on
+> `/livox/lidar` in frame `livox_mid360_link` — the topic `livox_ros_driver2` uses for its
+> `xfer_format:=1` output. Nothing is published by the bridge except `/clock`,
+> `map → base_footprint`, the ZED sensor stream and that point cloud; the bridge **never**
+> publishes `/odom` or a `odom` TF.
 >
 > The ZED2i model in `athena_rover-6.urdf` (`zed_camera_link` + stereo/IMU frames, visual
 > mesh only) is both the TF tree and the source of truth for the sensor mount: the render
@@ -46,6 +52,7 @@ Welcome to the **Kratos** repository. This document serves as the authoritative 
                       |  - Athena Rover URDF Dynamics         |
                       |  - PD joint control (steer + wheels)  |
                       |  - Stereo cameras + IMU sensors       |
+                      |  - 360° LiDAR raycast                |
                       +-------------------+-------------------+
                                           |
                                           v
@@ -54,11 +61,12 @@ Welcome to the **Kratos** repository. This document serves as the authoritative 
                       |  - bridge_node: /cmd_vel & /steering  |
                       |  - rover_controller: PD joint gains   |
                       |  - zed_sensors: 2x camera + IMU PUB   |
+                      |  - livox_lidar: PointCloud2 PUB       |
                       |  - publishers: /clock + TF            |
                       +-------------------+-------------------+
                                           |
               /clock · TF: map -> base_footprint · /zed/zed_node/{left,right}/image_rect_color
-              + camera_info · /zed/zed_node/imu/data_raw
+              + camera_info · /zed/zed_node/imu/data_raw · /livox/lidar
                                           |
                                           v
                       +---------------------------------------+
@@ -131,6 +139,7 @@ kratos/
 │   │   │   │   ├── bridge_node.py              # GenesisBridge Node: /cmd_vel & /steering_mode
 │   │   │   │   ├── rover_controller.py         # DOF index lookup, PD gains, actuator commands
 │   │   │   │   ├── zed_sensors.py              # Simulated ZED2i: stereo pair + IMU → ZED topics
+│   │   │   │   ├── livox_lidar.py              # Simulated Livox MID-360: raycast → /livox/lidar
 │   │   │   │   └── publishers.py               # /clock publisher + map→base_footprint TF broadcaster
 │   │   │   │
 │   │   │   └── steering/                       # Modular wheel kinematics engine
@@ -252,8 +261,8 @@ ros2 topic pub /steering_mode std_msgs/msg/String "{data: 'independent'}" --once
 for the sensors alone). To run stereo-inertial odometry on it:
 ```bash
 ros2 launch athena_description rtabmap_vio.launch.py
-# accuracy check against the simulator ground truth:
-ros2 launch athena_description rtabmap_vio.launch.py ground_truth_frame_id:=map
+# unanchored odometry (odom frame free, as on hardware):
+ros2 launch athena_description rtabmap_vio.launch.py ground_truth_frame_id:=''
 ```
 That launches `display.launch.py` plus:
 
@@ -269,27 +278,84 @@ Key points:
   to ~0.09x realtime. Pass `show_viewer:=false` when you need VIO accuracy or a long drive.
 - `publish_tf:=false` — the bridge keeps sole ownership of `map → base_footprint`; the
   estimate is read from `/odom` instead of competing for the TF tree.
-- `ground_truth_frame_id:=map` is a **validation-only** option: RTAB-Map then aligns its
-  odometry frame to the bridge's ground-truth TF and logs/uses the true error. Leave it empty
-  for normal operation (and on hardware, where no ground truth exists).
+- `frame_id: base_footprint` — RTAB-Map publishes `odom_frame_id → frame_id`, so this sets the
+  convention of every `/odom` pose. Keeping the body frame (+X forward) is what makes the
+  RViz Odometry arrow (drawn along pose +X) point where the rover is going. Using the camera's
+  optical frame here puts the pose +X 90° to the right of travel.
+- `ground_truth_frame_id` defaults to `map` **in this simulation launch**: RTAB-Map resets its
+  *initial* odometry pose from `map → base_footprint` (initialization only — it does not
+  continuously correct or fuse the truth). This is required because `imu_filter_madgwick` has
+  no magnetometer, so its startup yaw is arbitrary; RTAB-Map's `odom` frame inherits that yaw,
+  and the static identity `map → odom` would otherwise rotate the whole estimate (and the
+  arrow) relative to `map`. On hardware there is no ground truth: pass
+  `ground_truth_frame_id:=''`.
+- Measured with both fixes: RViz arrow (odom pose +X) vs ground-truth heading **median 0.0°,
+  max 0.4°**; `/odom` position tracks the truth TF to 2–4 cm over a short drive; odom yaw
+  *change* matches truth to 0.1–0.7°. (The old optical-frame setup measured +115° at the end of
+  a straight drive.)
 - RTAB-Map parameters (`Odom/*`, `Vis/*`, `GFTT/*`) must be passed as **strings** in the
   parameter dict or the node throws `InvalidParameterTypeException`.
 - Measured on this terrain: forward-drive scale error ≈ −0.2…−0.5%, rotation error ≈ 0.1–0.2°
   over 2–3 m. Hard turns at speed flip the rover (see §9), which is a physics problem, not an
   estimator one — keep `|angular.z| ≲ 0.05 rad/s` at 0.25 m/s when you need a long run.
 
-To move the same pipeline to hardware, drop `display.launch.py` and the sim-specific
-parameters (`use_sim_time`, `publish_tf`) and point the remappings at the real
-`/zed/zed_node/...` topics — the names are identical.
+To move the same pipeline to hardware, drop `display.launch.py`, `use_sim_time`,
+`publish_tf` and the ground-truth anchor (`ground_truth_frame_id:=''`), and point the
+remappings at the real `/zed/zed_node/...` topics — the names are identical. Keep
+`frame_id: base_footprint` (or your own body frame): the arrow/pose-convention fix is not
+simulation-specific.
 
 ### 5.7 Visual landmarks
 The terrain STL has no UVs (`Texture given but asset missing uv info`), so it cannot be
 textured, and a featureless white mesh gives VIO nothing to track (it ends up locking onto
 the rover's own static shadow). `scene.py::_add_visual_landmarks()` therefore scatters
 `LANDMARK_COUNT` static, **non-colliding** boulders whose heights are ray-cast onto the
-terrain. They are visual only: they add no physics. All boulders are merged into **one** visual
-mesh (exported to a temp STL) because entity count directly costs camera render time. Disable
-with `VISUAL_LANDMARKS = False` in `config.py` (expect VIO to lose tracking).
+terrain. They add no physics (`collision=False`), but their material is
+`gs.materials.Kinematic(use_visual_raycasting=True)`, so they are also part of the Livox
+raycast (§5.8) and are visible in `/livox/lidar` — otherwise the LiDAR could only see the
+collision geometry (terrain + rover). `Kinematic` (not `Rigid`) matters: it puts the boulders
+in the kinematic solver, where every link is fixed, so Genesis builds their visual raycast
+BVH once. With `Rigid` they would share the rover's rigid solver, whose movable links force a
+full visual BVH rebuild **every physics step** (measured 150 → 27 steps/s). All boulders are
+merged into **one** visual mesh (exported to a temp STL) because entity count directly costs
+camera render time. Disable with `VISUAL_LANDMARKS = False` in `config.py` (expect VIO to lose
+tracking, and no rocks in the scan).
+
+### 5.8 Simulated Livox MID-360 LiDAR
+`display.launch.py` also publishes a simulated point cloud; nothing extra needs to start.
+`genesis_bridge/livox_lidar.py` ray-casts the scene (terrain + rover collision geometry, plus
+the visual landmark boulders via `use_visual_raycasting`) from the URDF `livox_mid360_link`
+frame at 10 Hz simulated time and publishes `sensor_msgs/PointCloud2` on `/livox/lidar`:
+
+```bash
+ros2 topic hz /livox/lidar          # ~10 Hz sim time
+ros2 run rviz2 rviz2                # PointCloud2 display, topic /livox/lidar
+```
+
+- **Only published while subscribed**, like the ZED images: `LivoxLidar.publish()` checks
+  `get_subscription_count()` and skips the ROS message when nobody listens. Unlike the
+  cameras, the raycast itself is owned by Genesis and its BVH is refreshed every physics
+  step, so simply *creating* the sensor costs ~2.8 ms/step whether or not anyone reads it
+  (≈194 steps/s headless vs ≈478 steps/s without the LiDAR). The landmark boulders add a
+  visual BVH on top (≈150 steps/s): it is built once because they use the `Kinematic`
+  material, not per step — keep it that way (§5.7). Tune `LIVOX_BEAMS_H/_V` in
+  `config.py` (ray count is nearly free; the fixed cost is the BVH refresh).
+- **Pattern**: uniform spherical grid over the hardware FOV — 360° azimuth, `-7°…+52°`
+  elevation, 0.1 m blind zone, 100 m range. The real unit uses a non-repetitive rosette, so
+  density is representative, not bit-identical. Most rays above the horizon legitimately
+  return nothing (sky); a typical settled scan is ≈7.4k points (≈6.8k without the landmark
+  boulders in the raycast).
+- **Frame**: `livox_mid360_link` (`base_footprint → base_link` z +0.155, then
+  `livox_mid360_link` at `z = +0.175`; both rpy 0). The cloud is in that frame, so it lines
+  up with the URDF without extra transforms. On hardware, run `livox_ros_driver2` with
+  `xfer_format:=1` and set its `frame_id` to `livox_mid360_link` (or add the matching static
+  transform). For the default `CustomMsg` form, use `livox_ros_driver2/msg/CustomMsg`
+  instead — this bridge publishes PointCloud2 only.
+- **Fields**: `x, y, z, intensity` (`FLOAT32`, `point_step = 16`). `intensity` is synthetic
+  (inverse-square range falloff clipped to 0.05–1.0); treat it as a placeholder.
+- **Self-returns**: a 360° sensor at that height sees the rover's own chassis and the ZED2i
+  housing on the lowest rings — physically correct. Raise `LIVOX_MIN_RANGE` if your consumer
+  needs them gone.
 
 ---
 
@@ -347,6 +413,7 @@ bridge logs a warning and falls back to `DEFAULT_STEERING_MODE` (`ackermann`); a
 | :--- | :--- | :--- |
 | `/clock` | `rosgraph_msgs/msg/Clock` | Simulated time; advances by `SIM_DT` (0.01 s) per physics step, so its real-world rate is however fast the GPU loop runs |
 | TF `map → base_footprint` | `tf2_msgs/msg/TFMessage` | Ground-truth rover pose from `rover.get_pos()` / `get_quat()` (Genesis `[w,x,y,z]` converted to ROS `[x,y,z,w]`) |
+| `/livox/lidar` | `sensor_msgs/msg/PointCloud2` | Simulated 360° LiDAR scan, frame `livox_mid360_link`, `x/y/z/intensity`, 10 Hz sim time; only while subscribed (§7 below) |
 
 ### Subscribed by the bridge
 | Topic | Type | Description |
@@ -380,11 +447,28 @@ z=+0.110)`. Because that point is 25 mm *inside* the camera housing, the render 
 `ZED_NEAR = 0.03 m` to clip the housing rather than moving the camera forward — frames,
 baseline and camera-IMU lever arm therefore stay exactly as modelled.
 
+### Published by the bridge — simulated Livox MID-360 (`livox_lidar.py`)
+| Topic | Type | Description |
+| :--- | :--- | :--- |
+| `/livox/lidar` | `sensor_msgs/msg/PointCloud2` | 360° scan, frame `livox_mid360_link`; fields `x, y, z, intensity` (`FLOAT32`, `point_step = 16`), 10 Hz simulated time; published only while subscribed |
+
+Geometry: sensor origin at `base_footprint (0, 0, 0.330)` — `base_link` is `z +0.155` and the
+URDF joint is `z +0.175` — with axes identical to `base_footprint` (all rpy 0), so no extra
+transform is needed beyond the URDF. FOV is 360° × `-7°…+52°`, range 0.1–100 m. The scan
+pattern is a uniform spherical grid rather than the MID-360's non-repetitive rosette, so
+point density is representative, not identical. Misses (sky) are dropped; a settled scan is
+≈7.4k points. About 2k of those land on the landmark-boulder upper hemispheres; they mostly
+replace terrain hits that would otherwise be behind the rocks, so the net increase over a
+landmark-free scan is only ≈0.6k.
+
 ### Not published by the bridge
 `/odom` exists in `config.py` (`TOPIC_ODOM`) and `BridgePublishers.publish_odom()` is
 implemented, but the publisher creation and the call in `runner.py` are **commented out**.
 The bridge never broadcasts `odom` TF either. `/odom` is published only by
-`rtabmap_odom/stereo_odometry` when you run `rtabmap_vio.launch.py`.
+`rtabmap_odom/stereo_odometry` when you run `rtabmap_vio.launch.py`:
+`odom → base_footprint`, with `publish_tf:=false`. In simulation the odometry pose is
+anchored to `map` at initialization (see §5.6), so the first `/odom` pose matches the
+bridge's `map → base_footprint` pose; it then drifts as normal odometry does.
 
 ### TF Frame Hierarchy (as defined in `athena_rover-6.urdf`)
 ```
@@ -455,6 +539,10 @@ When contributing to this repository, AI agents **MUST** strictly adhere to the 
    - Steering logic stays in `src/athena_description/script/steering/`.
 3. **Simulation Time Contract**:
    - Genesis drives simulated time; the bridge is the **only** `/clock` source.
+   - Exactly **one** bridge may run at a time. It holds an exclusive `flock` on
+     `~/.ros/genesis_bridge.lock`; a second instance exits with a clear error instead of
+     publishing a second, differently-offset `/clock` (which makes time jump backwards and
+     clears every downstream TF buffer). Do not remove that guard.
    - Every downstream ROS 2 node (e.g. `robot_state_publisher`) **MUST** set
      `use_sim_time: True` — this is already done in `display.launch.py`.
 4. **Single TF Authority**:
@@ -462,11 +550,22 @@ When contributing to this repository, AI agents **MUST** strictly adhere to the 
      below `base_footprint`. Never broadcast `map → base_footprint` from anywhere else.
    - VIO therefore runs with `publish_tf:=false`. Do **not** let `stereo_odometry` publish
      `odom` TF in this workspace — it would fight the ground-truth tree.
+   - `rtabmap_vio.launch.py` publishes a static identity `map → odom` plus RTAB-Map's
+     `odom → base_footprint` (from `/odom`). Keep `frame_id: base_footprint` so those poses
+     use the rover body convention (see §5.6); the identity `map → odom` only works because
+     the simulation launch anchors the initial odometry pose to `map`
+     (`ground_truth_frame_id` default). Changing either independently re-introduces the
+     90°-rotated arrow.
 5. **Sensor Rig Equivalence**:
    - Sensor topics, frame names, intrinsics (`fx = fy = 527.839`, `cx = 640`, `cy = 360`),
      baseline (0.12 m), resolution (1280×720) and frame rates (10 Hz images / 100 Hz IMU)
      mirror the real ZED2i HD720 stream. Changing any of them breaks the "runs unchanged on
      hardware" property — update `config.py` **and** this guide together.
+   - The LiDAR side follows the same rule: `/livox/lidar`, frame `livox_mid360_link`,
+     PointCloud2 fields `x/y/z/intensity`, 360° × `-7°…+52°`, 0.1–100 m, 10 Hz. The
+     simulated pattern is a uniform spherical grid (real unit: non-repetitive rosette), so
+     treat density as representative. Keep `LIVOX_*` in `config.py` in sync with this guide
+     and with the `livox_mid360_link` joint in `athena_rover-6.urdf`.
    - Sensor poses are the URDF optical-frame origins; keep `ZED_CAMERA_*`/`ZED_IMU_POS` in
      sync with `athena_rover-6.urdf`. `ZED_NEAR` exists only to clip the camera housing.
    - Keep publishing `imu/data_raw` **without** orientation (like the real wrapper) and let
@@ -530,16 +629,60 @@ When contributing to this repository, AI agents **MUST** strictly adhere to the 
     `get_subscription_count()` so an idle scene does not pay for stereo rendering.
   - *Fix*: start a consumer (`rtabmap_vio.launch.py`, `rqt_image_view`, ...) — images begin
     immediately.
+- **No point cloud on `/livox/lidar`**:
+  - *Cause 1*: nothing is subscribed — `LivoxLidar.publish()` is gated the same way the
+    cameras are.
+  - *Cause 2*: RViz has no `PointCloud2` display, or its fixed frame is not `map` /
+    `livox_mid360_link`.
+  - *Check*: `ros2 topic info /livox/lidar` (1 publisher, ≥1 subscriber), and
+    `ros2 run tf2_ros tf2_echo base_footprint livox_mid360_link` should give
+    `[0.000, 0.000, 0.330]`, identity rotation. An almost-empty cloud is normal — most rays
+    point at the sky; the settled ground ring is ≈7.4k points (≈6.8k without the visual
+    landmark boulders in the raycast).
+- **Rocks / boulders are missing from `/livox/lidar`**:
+  - *Cause*: the boulders are `collision=False`, so they are not in the collision geometry
+    the LiDAR casts against unless they opt in through `use_visual_raycasting`.
+  - *Fix*: keep `material=gs.materials.Kinematic(use_visual_raycasting=True)` in
+    `scene.py::_add_visual_landmarks()` (§5.7). Using `Rigid` also makes them visible, but it
+    moves them into the rover's rigid solver and forces a full visual-BVH rebuild every
+    step — measured 150 → 27 steps/s.
+  - *Expected*: a settled scan is ≈7.4k points, of which ~2k land on boulder upper
+    hemispheres and ~75 of the 160 boulders get at least one return (the rest are out of the
+    beam pattern, occluded, or too small at range).
+- **Simulation slows down after adding the LiDAR**:
+  - *Cause*: Genesis refreshes the raycast BVH every physics step while a `Lidar` sensor
+    exists, so the cost is paid even with no subscriber (≈3 ms/step; ray count is nearly
+    free). This is the documented trade-off, not a bug.
+  - *Fix*: run with `show_viewer:=false`; if you need the step rate back, set
+    `LIVOX_BEAMS_H/_V` lower (barely helps) or remove the sensor from `runner.py`.
 - **`stereo_odometry` dies with `InvalidParameterTypeException`**:
   - *Cause*: RTAB-Map parameters are declared as strings; passing an int/double fails.
   - *Fix*: quote every `Odom/*`, `Vis/*`, `GFTT/*` value in the launch file.
+- **RViz Odometry arrow points 90° away from the rover / `/odom` yaw offset from `map`**
+  *(fixed — do not regress)*:
+  - *Symptom*: the arrow from RViz's Odometry display on `/odom` points ~90° to the side of
+    the direction the rover is actually driving (measured +115° at the end of a straight run).
+  - *Cause 1*: `frame_id` was the camera optical frame. RTAB-Map publishes
+    `odom_frame_id → frame_id`, so every pose carried the optical convention (x right, y down,
+    z forward); RViz draws the arrow along **pose +X**, i.e. the rover's right.
+  - *Cause 2*: `imu_filter_madgwick` runs without a magnetometer, so its initial yaw is
+    arbitrary (measured ~102–128° while `map` heading was ~−1°). RTAB-Map's `odom` frame
+    inherits that yaw, and the static identity `map → odom` then rotates the whole estimate
+    relative to `map`.
+  - *Fix*: `frame_id: base_footprint` in the launch (`stereo_odometry` **and** `rtabmap_viz`),
+    plus `ground_truth_frame_id` defaulting to `map` in the simulation launch, which resets
+    only the *initial* odometry pose (RTAB-Map `OdometryROS.cpp`, `odometry_->reset()`).
+  - *Verified*: arrow vs ground-truth heading median 0.0°, max 0.4°; odom yaw change matches
+    truth to 0.1–0.7°. On hardware pass `ground_truth_frame_id:=''`; keep `base_footprint`.
+  - *Diagnose*: `ros2 topic echo /odom --once --field child_frame_id` must print
+    `base_footprint` (not `zed_left_camera_optical_frame`), and the log must show
+    `Initializing odometry pose ... (from "map" -> "base_footprint")`.
 - **`/odom` translation does not match the TF ground truth (direction only, magnitude fine)**:
-  - *Cause*: without `ground_truth_frame_id`, RTAB-Map's `odom` frame is **gravity-aligned by
-    the IMU** at initialisation, not the initial camera optical frame, so a comparison in the
-    wrong frame shows a pure-rotation mismatch.
-  - *Fix*: for validation run `ground_truth_frame_id:=map` (RTAB-Map then anchors the odom
-    frame to the bridge's ground truth). For normal operation, compare frame-invariant
-    quantities (travelled distance, relative rotation) instead.
+  - *Cause*: with `ground_truth_frame_id:=''` RTAB-Map's `odom` frame is **gravity-aligned by
+    the IMU** at initialisation, not `map`, so absolute pose comparisons show a pure-rotation
+    mismatch.
+  - *Fix*: leave the simulation default (`ground_truth_frame_id:=map`). For unanchored runs,
+    compare frame-invariant quantities (travelled distance, relative rotation) instead.
 - **Stale nodes corrupt VIO measurements**:
   - *Symptom*: `ros2 node list` shows duplicates of `/stereo_odometry`, `/genesis_bridge`, etc.
   - *Cause*: a previous launch was not fully killed (launch kills the parent, not always the
@@ -547,6 +690,24 @@ When contributing to this repository, AI agents **MUST** strictly adhere to the 
   - *Fix*: verify one of each before measuring. Kill by PID
     (`ps -eo pid,cmd | grep -E "genesis_launcher|stereo_odometry"`); never `pkill -f` with a
     pattern that matches your own shell command (it self-kills).
+  - *Second bridge is refused*: `GenesisBridge` holds an exclusive `flock` on
+    `~/.ros/genesis_bridge.lock` for its whole lifetime, so starting a second simulation now
+    fails immediately with
+    `[genesis_bridge] ERROR: another genesis_bridge is already running (pid …)` and the second
+    process never publishes `/clock`. The kernel drops the lock when the owning process exits,
+    so a crashed or SIGKILLed bridge cannot leave a stale lock behind — no manual cleanup is
+    needed. Kill the PID named in the message (or restart the launch) and start again.
+- **`Detected jump back in time` / `Clearing TF buffer` / `TF_OLD_DATA` in `stereo_odometry`
+  and `rtabmap_viz`, and the RViz point cloud or odometry disappears**:
+  - *Cause*: **two simulation bridges publishing `/clock` at once**. Each derives `sim_time`
+    from the shared persisted offset (`~/.ros/genesis_bridge_clock.txt`) at its own start
+    time, so the two clocks differ by however long the first had been running (measured
+    ~19.6 s). Consumers see time jump backwards every other message, flush their TF buffers,
+    and can never resolve `map → base_footprint` — the data exists but is not drawn.
+  - *Fix*: keep exactly one bridge. The single-instance lock above now prevents this; if the
+    warnings still appear, `ros2 topic info /clock` must show `Publisher count: 1`. Clock
+    persistence is atomic (temp file + `os.replace`) so a killed bridge cannot leave a
+    half-written offset either.
 - **Nothing moves on `/cmd_vel`**:
   - *Check*: the bridge logs `Steering mode: <name>` on startup; confirm the mode name is
     valid, and check `WHEEL_KV` / `STEER_KP` in `config.py`.
@@ -561,6 +722,7 @@ Before reporting any task complete or committing code:
 1. **Bridge Health Check**:
    ```bash
    ros2 topic hz /clock
+   ros2 topic info /clock         # expect Publisher count: 1 (a second bridge is refused)
    ros2 topic info /cmd_vel      # expect a subscription from the bridge
    ```
 2. **TF Check**:
@@ -575,27 +737,40 @@ Before reporting any task complete or committing code:
    ros2 topic echo /zed/zed_node/right/camera_info --once --field p  # p[3] = -63.341
    ros2 topic echo /zed/zed_node/imu/data_raw --once --field orientation_covariance  # [0] = -1
    ```
-4. **No Stray Real-Driver Code** (expect no matches outside `zed_sensors.py` /
+4. **Simulated Livox MID-360 Check**:
+   ```bash
+   ros2 topic info /livox/lidar      # 1 publisher, type sensor_msgs/msg/PointCloud2
+   ros2 topic hz /livox/lidar        # ~10 Hz sim time once a subscriber exists
+   ros2 topic echo /livox/lidar --once --field header.frame_id   # livox_mid360_link
+   ros2 topic echo /livox/lidar --once --field width             # ≈7400 (sky returns dropped); ≈6800 without landmark boulders
+   ros2 run tf2_ros tf2_echo base_footprint livox_mid360_link    # [0, 0, 0.330], identity
+   ```
+5. **No Stray Real-Driver Code** (expect no matches outside `zed_sensors.py` /
    `rtabmap_vio.launch.py`, which are the simulated stack):
    ```bash
    grep -rni "zed_wrapper\|zed_interfaces\|cv_bridge\|image_geometry\|rtabmap\|imu_filter" \
      src/athena_description/ --include="*.py" --include="*.xml" | grep -v "_zed\|rtabmap_vio"
    ```
    (`AGENTS.md` and the launch file are the only legitimate mentions.)
-5. **URDF Sanity** (expect one root link, 23 links, 22 joints, no dangling refs):
+6. **URDF Sanity** (expect one root link, 24 links, 23 joints — 23/22 before the Livox
+   link — with no duplicates and no dangling refs):
    ```bash
    python3 -c "import xml.etree.ElementTree as ET; \
    r=ET.parse('src/athena_description/urdf/athena_rover-6.urdf').getroot(); \
    print(len(r.findall('link')), len(r.findall('joint')))"
    ```
-6. **VIO Smoke Test** (optional, ~1 min):
+7. **VIO Smoke Test** (optional, ~1 min):
    ```bash
-   ros2 launch athena_description rtabmap_vio.launch.py ground_truth_frame_id:=map
+   ros2 launch athena_description rtabmap_vio.launch.py show_viewer:=false
    # in a second shell: drive straight, then stop
-   ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.25}}"
-   ros2 topic echo /odom --once          # should track the TF pose, quality > 0 in the log
+   ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.15}}"
+   ros2 topic echo /odom --once --field child_frame_id   # base_footprint
+   ros2 topic echo /odom --once                          # first pose ≈ map -> base_footprint
    ```
-7. **Clean Build**:
+   The log must contain `Initializing odometry pose ... (from "map" -> "base_footprint")`
+   and `quality` > 0. RViz's Odometry arrow (fixed frame `map` or `odom`) should point along
+   the rover's heading, not 90° to the side.
+8. **Clean Build**:
    ```bash
    colcon build --symlink-install --packages-select athena_description
    ```

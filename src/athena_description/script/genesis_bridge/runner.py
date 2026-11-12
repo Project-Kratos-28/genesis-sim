@@ -1,8 +1,11 @@
+import sys
+
 import genesis as gs
 import rclpy
 
 from . import config
-from .bridge_node import GenesisBridge
+from .bridge_node import BridgeAlreadyRunning, GenesisBridge
+from .livox_lidar import LivoxLidar
 from .publishers import BridgePublishers
 from .rover_controller import RoverController
 from .scene import build_scene
@@ -13,12 +16,15 @@ class SimulationRunner:
     def __init__(self):
         self.node = GenesisBridge()
         self.sim = build_scene(
-            lambda scene, rover: ZedSensors(self.node, scene, rover),
+            lambda scene, rover: (
+                ZedSensors(self.node, scene, rover),
+                LivoxLidar(self.node, scene, rover),
+            ),
             show_viewer=self.node.show_viewer,
         )
         self.controller = RoverController(self.sim.rover)
         self.pubs = BridgePublishers(self.node)
-        self.zed = self.sim.sensors
+        self.zed, self.lidar = self.sim.sensors
         self.step_count = 0
         self._settle()
 
@@ -45,6 +51,7 @@ class SimulationRunner:
         # Synchronise the ZED sensor rate-limiters to the new sim_time baseline
         # so the first image/IMU publish is properly spaced from t=0 of this run.
         self.zed.reset_time(self.node.sim_time)
+        self.lidar.reset_time(self.node.sim_time)
 
     def step(self):
         node, sim = self.node, self.sim
@@ -60,6 +67,7 @@ class SimulationRunner:
         self.pubs.publish_clock()
         self.pubs.publish_base_tf(pos, quat)
         self.zed.publish(node.sim_time)
+        self.lidar.publish(node.sim_time)
 
         self._debug(wheel)
 
@@ -81,6 +89,7 @@ class SimulationRunner:
         # Persist the final sim_time so the next session starts monotonically.
         self.node._persist_clock()
         self.node.destroy_node()
+        self.node.release_instance_lock()
         if rclpy.ok():
             rclpy.shutdown()
 
@@ -88,7 +97,13 @@ class SimulationRunner:
 def main():
     rclpy.init()
     gs.init(backend=gs.gpu)
-    runner = SimulationRunner()
+    try:
+        runner = SimulationRunner()
+    except BridgeAlreadyRunning as exc:
+        print(f"\n[genesis_bridge] ERROR: {exc}\n", file=sys.stderr)
+        if rclpy.ok():
+            rclpy.shutdown()
+        raise SystemExit(1) from None
     try:
         runner.run()
     finally:

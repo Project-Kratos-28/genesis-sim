@@ -43,8 +43,15 @@ def _add_visual_landmarks(scene, rover_xy):
 
     The terrain mesh has no UVs, so texturing it is impossible; without any
     structure the stereo odometry has nothing to track. These boulders are
-    visual only (`collision=False`, `fixed=True`) and so leave the dynamics
-    untouched.
+    visual only for the physics (`collision=False`, `fixed=True`) and so leave
+    the dynamics untouched.
+
+    The material also opts into `use_visual_raycasting`, which adds the merged
+    boulder mesh to Genesis' visual raycast BVH. Without it the simulated Livox
+    would only ever see the collision geometry (terrain + rover) and the rocks
+    would be missing from `/livox/lidar`; the flag changes nothing for physics
+    or camera rendering. The mesh is static, so that BVH is built once and is
+    not rebuilt per step.
     """
     import numpy as np
     import trimesh
@@ -100,8 +107,14 @@ def _add_visual_landmarks(scene, rover_xy):
     ])
     stl_path = os.path.join(tempfile.gettempdir(), "athena_visual_landmarks.stl")
     boulders.export(stl_path)
+    # `Kinematic` (rather than `Rigid`) keeps these visual-only boulders in the
+    # kinematic solver: every link there is fixed, so Genesis treats the visual
+    # raycast BVH as static and builds it once. A `Rigid` material would put them
+    # in the rover's rigid solver, whose movable links force that (large) visual
+    # BVH to rebuild every physics step.
     scene.add_entity(
         gs.morphs.Mesh(file=stl_path, fixed=True, collision=False),
+        material=gs.materials.Kinematic(use_visual_raycasting=True),
         surface=gs.surfaces.Rough(color=(0.33, 0.27, 0.22)),
     )
 
