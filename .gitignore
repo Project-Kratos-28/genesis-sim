@@ -2,6 +2,10 @@ build/
 install/
 log/
 
+# Python virtualenvs (contains genesis-world + torch; never commit)
+.venv/
+venv/
+
 .git/
 frame*
 ZED*
