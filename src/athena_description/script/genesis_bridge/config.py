@@ -53,6 +53,14 @@ STEER_KV = 40.0
 WHEEL_KP = 0.0
 WHEEL_KV = 30.0
 
+# Hard cap on the drive torque applied per wheel (Nm). The wheel velocity
+# controller is pure damping (WHEEL_KP = 0), so a stalled wheel would otherwise
+# demand unbounded torque and press the contact tens of kN into the terrain
+# (measured 37 mm penetration). 10 Nm x 4 wheels / 0.115 m = 348 N of tractive
+# force, i.e. ~2.2x the rover's weight. Must match the wheel <limit effort>
+# in athena_rover-6.urdf; whichever is stricter wins.
+WHEEL_MAX_TORQUE = 10.0
+
 
 ## Simulated ZED2i (stereo camera pair + IMU)
 #
@@ -154,6 +162,19 @@ TOPIC_LIVOX_POINTS = "/livox/lidar"
 ## Misc 
 DEFAULT_STEERING_MODE = "ackermann"
 DEBUG_PRINT_EVERY = 100
+
+## Wheel/terrain penetration diagnostics
+# Per-wheel report built from two independent measurements: `pen` is the
+# physics solver's own contact penetration (authoritative), `vis` is the
+# wheel-centre clearance above the rendered terrain STL (cross-check that also
+# catches tunnelling, but reads ~20-35 mm negative around facet edges because
+# Genesis collides against a coarse SDF of the terrain, not the STL). Positive
+# `pen` means the wheel is inside the collision terrain.
+PENETRATION_DEBUG = True
+PENETRATION_DEBUG_EVERY = 20  # physics steps (~0.2 s of simulated time)
+# Lines whose deepest wheel exceeds this are tagged PENETRATION instead of
+# penetration. A few millimetres of solver softness is normal.
+PENETRATION_MAX_ALLOWED = 0.005  # metres
 
 # Path where the bridge persists its last sim_time so a restart can continue
 # the clock monotonically without waiting for /clock subscription callbacks

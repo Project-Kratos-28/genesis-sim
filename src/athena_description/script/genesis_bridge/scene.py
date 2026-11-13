@@ -9,11 +9,12 @@ from . import config
 class SimHandles:
     scene: Any
     rover: Any
+    terrain: Any = None
     sensors: Any = None
 
 
 def _add_terrain(scene):
-    scene.add_entity(
+    return scene.add_entity(
         morph=gs.morphs.Mesh(
             file=config.TERRAIN_PATH,
             pos=config.TERRAIN_POS,
@@ -131,10 +132,10 @@ def build_scene(sensor_factory=None, show_viewer=None) -> SimHandles:
         show_viewer=config.SHOW_VIEWER if show_viewer is None else show_viewer,
     )
 
-    _add_terrain(scene)
+    terrain = _add_terrain(scene)
     rover = _add_rover(scene)
     if config.VISUAL_LANDMARKS:
         _add_visual_landmarks(scene, rover_xy=(10.0, 0.0))
     sensors = sensor_factory(scene, rover) if sensor_factory else None
     scene.build()  
-    return SimHandles(scene, rover, sensors)
+    return SimHandles(scene, rover, terrain, sensors)

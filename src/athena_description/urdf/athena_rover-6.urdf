@@ -194,7 +194,12 @@
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.186"/>
     <axis xyz="0 1 0"/>
     <dynamics damping="0.01" friction="0.05"/>
-    <limit upper="3.14" velocity="10.0" effort="100.0"/>
+    <!-- Wheel torque limit: 10 Nm x 4 wheels / r = 348 N of tractive force
+         (2.2x the rover's weight). Without a limit Genesis uses an infinite
+         force range for the velocity controller, letting a stalled wheel
+         press tens of kN into the terrain (37 mm penetration, see
+         genesis_bridge/penetration_debug.py). Keep all four wheels equal. -->
+    <limit velocity="10.0" effort="10.0"/>
   </joint>
   <!-- ================================================================ -->
   <!-- REAR-LEFT FRONT-->
@@ -275,6 +280,7 @@
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.186"/>
     <axis xyz="0 1 0"/>
     <dynamics damping="0.01" friction="0.05"/>
+    <limit velocity="10.0" effort="10.0"/>
   </joint>
   <!-- ================================================================ -->
   <!-- FRONT-RIGHT (mirrored) rear-->
@@ -355,6 +361,7 @@
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.186"/>
     <axis xyz="0 1 0"/>
     <dynamics damping="0.01" friction="0.05"/>
+    <limit velocity="10.0" effort="10.0"/>
   </joint>
   <!-- ================================================================ -->
   <!-- REAR-RIGHT (mirrored) front-->
@@ -407,7 +414,7 @@
     <child link="steer_coupler_front_right"/>
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.111"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" lower="-1.57" upper="1.57" velocity="1.0"/>
+    <limit effort="10" lower="-1.57" upper="1.57" velocity="1.0"/>
     <dynamics damping="0.2" friction="0.05"/>
   </joint>
   <link name="wheel_front_right">
@@ -435,6 +442,7 @@
     <origin rpy="0 0 0" xyz="0.0 0.0 -0.186"/>
     <axis xyz="0 1 0"/>
     <dynamics damping="0.01" friction="0.05"/>
+    <limit velocity="10.0" effort="10.0"/>
   </joint>
 
   <!-- ================================================================ -->

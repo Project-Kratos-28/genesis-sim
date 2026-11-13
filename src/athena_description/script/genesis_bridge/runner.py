@@ -6,6 +6,7 @@ import rclpy
 from . import config
 from .bridge_node import BridgeAlreadyRunning, GenesisBridge
 from .livox_lidar import LivoxLidar
+from .penetration_debug import WheelPenetrationMonitor
 from .publishers import BridgePublishers
 from .rover_controller import RoverController
 from .scene import build_scene
@@ -23,6 +24,7 @@ class SimulationRunner:
             show_viewer=self.node.show_viewer,
         )
         self.controller = RoverController(self.sim.rover)
+        self.penetration = WheelPenetrationMonitor(self.sim.rover, self.sim.terrain)
         self.pubs = BridgePublishers(self.node)
         self.zed, self.lidar = self.sim.sensors
         self.step_count = 0
@@ -59,6 +61,7 @@ class SimulationRunner:
         steer, wheel = node.compute_wheel_commands()
         self.controller.apply(steer, wheel)
         sim.scene.step()
+        self.penetration.update(node.get_logger())
 
         pos, quat = self.controller.pose()
         # self.pubs.publish_odom(pos, quat)
@@ -87,6 +90,7 @@ class SimulationRunner:
 
     def shutdown(self):
         # Persist the final sim_time so the next session starts monotonically.
+        self.penetration.log_summary(self.node.get_logger())
         self.node._persist_clock()
         self.node.destroy_node()
         self.node.release_instance_lock()

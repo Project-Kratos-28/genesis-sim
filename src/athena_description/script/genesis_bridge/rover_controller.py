@@ -18,6 +18,15 @@ class RoverController:
         n = len(self.wheel_dofs)
         self.rover.set_dofs_kp(kp=[config.WHEEL_KP] * n, dofs_idx_local=self.wheel_dofs)
         self.rover.set_dofs_kv(kv=[config.WHEEL_KV] * n, dofs_idx_local=self.wheel_dofs)
+        # Velocity control with WHEEL_KP = 0 is pure damping: torque grows with
+        # the velocity error, without bound if the joint has no force range. A
+        # stalled wheel then presses into the terrain until the contact yields
+        # (measured 37 mm / 13 kN). Clamp the drive torque explicitly.
+        self.rover.set_dofs_force_range(
+            lower=[-config.WHEEL_MAX_TORQUE] * n,
+            upper=[config.WHEEL_MAX_TORQUE] * n,
+            dofs_idx_local=self.wheel_dofs,
+        )
  
     def apply(self, steer_angles, wheel_ang_vels):
         self.rover.control_dofs_position(position=steer_angles, dofs_idx_local=self.steer_dofs)

@@ -402,7 +402,14 @@ bridge logs a warning and falls back to `DEFAULT_STEERING_MODE` (`ackermann`); a
 
 ### Actuator Control (`rover_controller.py`)
 - **Steer joints**: position control with `STEER_KP = 800`, `STEER_KV = 40`; initialised to 0.
-- **Wheel joints**: velocity control with `WHEEL_KP = 0`, `WHEEL_KV = 30` (pure damping).
+  Every steer joint (and every wheel spin joint) carries `<limit effort="10">` in the URDF.
+- **Wheel joints**: velocity control with `WHEEL_KP = 0`, `WHEEL_KV = 30` (pure damping),
+  **hard-clamped to `WHEEL_MAX_TORQUE = 10 Nm`** per wheel via `set_dofs_force_range()`.
+  This pair matters: pure damping means torque grows with the velocity error, and without a
+  force range a stalled wheel demands unbounded torque and presses tens of kN into the
+  terrain (measured 37 mm penetration, 13 kN, and a multi-second stall before the fix).
+  10 Nm × 4 / 0.115 m = 348 N of tractive force ≈ 2.2× the rover's weight. Do not remove
+  the URDF limits or the clamp, and keep all four wheels equal.
 
 ---
 
@@ -579,7 +586,40 @@ When contributing to this repository, AI agents **MUST** strictly adhere to the 
 
 ## 9. Known Issues & Troubleshooting
 
-- **Rover Flipping on Martian Terrain** *(known, unresolved)*:
+- **Wheels digging into the terrain / rover stalled** *(fixed — do not regress)*:
+  - *Symptom*: With `WHEEL_KV = 30` a single wheel (first seen: front-right) would stop
+    turning while the other three tracked their commands, the rover would crawl at
+    0.02–0.06 m/s, and the attitude would eventually be thrown (flip). The solver reported
+    10–37 mm of contact penetration on that wheel for tens of seconds at ~5–14 kN.
+  - *Cause*: `wheel_*_spin` joints had no `<limit effort>` (three of four), so Genesis built
+    their DOFs with `force_range = [-inf, +inf]`. With `WHEEL_KP = 0`, the velocity error of
+    a stalled wheel (5.5 rad/s) became an unbounded torque that squeezed the wheel into the
+    terrain. `steer_front_right` also had `effort="1000"` while the others had `10`.
+  - *Fix*: all four wheel spin joints now have `<limit velocity="10.0" effort="10.0"/>`,
+    every steer joint has `effort="10"`, and `RoverController._configure_gains()` clamps the
+    wheel DOFs with `set_dofs_force_range(±WHEEL_MAX_TORQUE)` (`config.py`, 10 Nm). After the
+    fix a 6 × 30 s circle sweep at 0.10–0.50 m/s had no stall, no flip, all wheel speeds
+    tracking their commands, and at most brief (≤0.12 s) 10–25 mm wedges at 0.5 m/s.
+  - *Diagnostic*: `genesis_bridge/penetration_debug.py` logs per-wheel solver `pen`, net/max
+    contact force and `vis` clearance every `PENETRATION_DEBUG_EVERY` steps, and a summary at
+    shutdown. `PENETRATION_DEBUG = True` by default; set it to `False` for production runs.
+- **Wheels look sunk into the rendered terrain** *(known, cosmetic)*:
+  - *Symptom*: `vis` in the penetration log reads −20…−45 mm for a wheel that the solver says
+    has ~0.1 mm of contact penetration; the cameras render the wheel slightly below the
+    surface. It does not affect traction or cause stalls.
+  - *Cause*: with `convexify=False` Genesis collides mesh-vs-mesh through an SDF of the
+    terrain. Its grid is capped at 128 nodes across the 30 m mesh, i.e. ~0.28 m horizontal
+    cells, while the camera renders the raw STL (`~0.47 m` triangles). Near facet edges the
+    smoothed SDF surface sits up to ~3 cm below the rendered one, so the wheel centre rests
+    lower than the visual surface. Measured SDF-vs-visual height delta around the spawn:
+    median ~+1 mm, p1/p99 −20/+22 mm, |Δ| > 10 mm over ~40 % of the area.
+  - *Not fixed by*: `sdf_max_res` 128 → 256 (cell 0.14 m; still ±20–45 mm at contacts) or
+    `watertighten=0`. The cell size, not the wrap, is the limit.
+  - *Proper fix (not implemented)*: replace the mesh terrain with a height-field collider
+    (`gs.morphs.Terrain(height_field=…, horizontal_scale≈0.05)`), which collides against the
+    elevation grid directly and renders the same surface. This needs an STL→height-field
+    conversion in `scene.py` and a re-check of the landmark/LiDAR raycasts.
+- **Rover Flipping on Martian Terrain** *(known, reduced)*:
   - *Symptom*: The rover occasionally flips or is thrown while driving over the terrain mesh.
     This happens most reliably when **turning under power** on a slope: `angular.z ≈ 0.10`
     at `0.25 m/s` flips it within ~20 s, and VIO then reports `quality=0` and (with
@@ -587,9 +627,12 @@ When contributing to this repository, AI agents **MUST** strictly adhere to the 
   - *Diagnosis*: check the attitude before blaming the estimator —
     `ros2 run tf2_ros tf2_echo map base_footprint` should show roll/pitch of a few degrees,
     not tens. A flipped rover has `|pitch|`/`|roll|` near 90°.
-  - *Mitigation*: Keep `convexify=False` for the terrain in `scene.py`, prefer
-    `mars_terrain_lowres.stl`, and raise the spawn clearance (`SPAWN_CLEARANCE = 1.5` in
-    `config.py`). For validation drives keep `|angular.z| ≲ 0.05 rad/s` at `0.25 m/s`.
+  - *Mitigation*: the unlimited-wheel-torque dig-in above was one cause and is fixed (a
+    6-segment sweep at 0.5 m/s, including 0.5 rad/s turns, no longer flips). Keep
+    `convexify=False` for the terrain in `scene.py`, prefer `mars_terrain_lowres.stl`, and
+    raise the spawn clearance (`SPAWN_CLEARANCE = 1.5` in `config.py`). The residual is the
+    brief terrain-facet wedges described above; for validation drives keep
+    `|angular.z| ≲ 0.05 rad/s` at `0.25 m/s` until the terrain collider is upgraded.
 - **Body pitching until the bogey hits its ±30° stop** *(fixed — do not regress)*:
   - *Symptom*: On spawn the chassis rotates nose-down 25–30° and a bogey pins at
     `±0.5236 rad`, regardless of terrain.
