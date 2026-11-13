@@ -1,15 +1,19 @@
 import math
 import os
-
+from pathlib import Path
 
 ## Assets
-URDF_PATH = os.path.expanduser(
-    "~/Desktop/kratos/src/athena_description/urdf/athena_rover-6.urdf"
-)
+# Resolve relative to this package instead of a hardcoded checkout location.
+# The source-tree layout is required for the URDF: Genesis resolves its
+# `package://athena_description/...` meshes relative to the URDF's directory,
+# which only lines up under `src/athena_description/urdf` (the install tree
+# nests the package under `share/`). Build with `--symlink-install` so this
+# file stays linked to the source tree.
+_ASSET_ROOT = Path(__file__).resolve().parents[2]
 
-TERRAIN_PATH = os.path.expanduser(
-    "~/Desktop/kratos/src/athena_description/urdf/payloads/mars_terrain_lowres.stl"
-)
+URDF_PATH = str(_ASSET_ROOT / "urdf" / "athena_rover-6.urdf")
+
+TERRAIN_PATH = str(_ASSET_ROOT / "urdf" / "payloads" / "mars_terrain_lowres.stl")
 
 TERRAIN_POS = (10.0, 4.0, 0.0)
 TERRAIN_FRICTION = 0.8
