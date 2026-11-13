@@ -8,7 +8,7 @@ URDF_PATH = os.path.expanduser(
 )
 
 TERRAIN_PATH = os.path.expanduser(
-    "~/Desktop/kratos/src/athena_description/urdf/payloads/mars_terrain_lowres.stl"
+    "~/Desktop/kratos/src/athena_description/urdf/payloads/irc_mars_terrain.stl"
 )
 
 TERRAIN_POS = (10.0, 4.0, 0.0)
@@ -20,7 +20,7 @@ SIM_DT = 0.01
 SHOW_VIEWER = True
  
 WHEEL_BOTTOM_TO_FOOTPRINT = -0.2145
-SPAWN_CLEARANCE = 1.5
+SPAWN_CLEARANCE = 3.0
 SPAWN_Z = -WHEEL_BOTTOM_TO_FOOTPRINT + SPAWN_CLEARANCE
 
 # Steps simulated with zero wheel command before the ROS clock starts. The rover
@@ -28,7 +28,7 @@ SPAWN_Z = -WHEEL_BOTTOM_TO_FOOTPRINT + SPAWN_CLEARANCE
 # reads as ~0 g on the IMU: Madgwick cannot determine gravity, so it latches a
 # wrong attitude and the VIO starts with a bogus initial pose. Settling first
 # means every published sensor sample is post-landing.
-SETTLE_STEPS = 300
+SETTLE_STEPS = 500
  
 LINKS_TO_KEEP = [
     "base_footprint",
